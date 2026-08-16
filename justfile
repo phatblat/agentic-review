@@ -1,5 +1,8 @@
 set shell := ["bash", "-euo", "pipefail", "-c"]
 
+@_default:
+    just --list
+
 # Build the agentic-review binary.
 build:
     go build -o agentic-review ./cmd/agentic-review
