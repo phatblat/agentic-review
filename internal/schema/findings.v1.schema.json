@@ -1,0 +1,84 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "findings.v1",
+  "title": "findings/v1 response",
+  "description": "The model-emitted findings array and escalation requests; envelope fields are stamped by the runtime after decode and are never part of this schema.",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["findings", "escalate"],
+  "properties": {
+    "findings": {
+      "type": "array",
+      "maxItems": 50,
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": ["category", "severity", "title", "claim", "anchor", "evidence", "confidence"],
+        "properties": {
+          "category": {
+            "type": "string",
+            "enum": ["correctness", "security", "performance", "testing", "docs", "style", "config", "o11y", "i18n"]
+          },
+          "severity": {
+            "type": "string",
+            "enum": ["blocker", "error", "warning", "nit"]
+          },
+          "title": { "type": "string", "maxLength": 200 },
+          "claim": { "type": "string", "maxLength": 2000 },
+          "domains": {
+            "type": "array",
+            "maxItems": 11,
+            "items": {
+              "type": "string",
+              "enum": ["auth", "secrets", "network", "storage", "concurrency", "api-surface", "ui", "build", "ci", "dependencies", "data-handling"]
+            }
+          },
+          "anchor": {
+            "type": "object",
+            "additionalProperties": false,
+            "required": ["kind"],
+            "properties": {
+              "kind": { "type": "string", "enum": ["line", "file", "pr"] },
+              "path": { "type": "string" },
+              "start_line": { "type": "integer", "minimum": 1 },
+              "end_line": { "type": "integer", "minimum": 1 },
+              "ref": { "type": "string", "enum": ["head", "base"] }
+            }
+          },
+          "evidence": {
+            "type": "array",
+            "minItems": 1,
+            "maxItems": 10,
+            "items": {
+              "type": "object",
+              "additionalProperties": false,
+              "required": ["path", "start_line", "end_line", "source"],
+              "properties": {
+                "path": { "type": "string" },
+                "start_line": { "type": "integer", "minimum": 1 },
+                "end_line": { "type": "integer", "minimum": 1 },
+                "source": { "type": "string", "maxLength": 4096 }
+              }
+            }
+          },
+          "suggested_fix": {
+            "type": "object",
+            "additionalProperties": false,
+            "required": ["start_line", "end_line", "replacement"],
+            "properties": {
+              "start_line": { "type": "integer", "minimum": 1 },
+              "end_line": { "type": "integer", "minimum": 1 },
+              "replacement": { "type": "string", "maxLength": 4096 }
+            }
+          },
+          "confidence": { "type": "number", "minimum": 0, "maximum": 1 }
+        }
+      }
+    },
+    "escalate": {
+      "type": "array",
+      "maxItems": 8,
+      "items": { "type": "string" }
+    }
+  }
+}

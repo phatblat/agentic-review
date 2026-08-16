@@ -1,0 +1,6 @@
+{
+  "action": "opened",
+  "number": 99,
+  "pull_request": { "draft": false },
+  "repository": { "name": "demo", "owner": { "login": "acme" } }
+}

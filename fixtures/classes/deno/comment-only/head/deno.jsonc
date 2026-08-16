@@ -1,0 +1,6 @@
+{
+  // Import map for the project — pinned to the 0.200.x std release line.
+  "imports": {
+    "std/": "https://deno.land/std@0.200.0/"
+  }
+}

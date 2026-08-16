@@ -1,0 +1,27 @@
+id: logic
+kind: agent
+summary: finds correctness bugs — logic errors, edge cases, error handling, concurrency
+activation:
+  always: true
+  priority: 5
+model:
+  capability: review
+  min_context: "32k"
+  structured_output: findings/v1
+inputs:
+  scope: full-diff
+  context: [pr-metadata, file-contents-head]
+  tools: [read_file]
+prompt:
+  system: ../prompts/logic.md
+  overlays_allowed: true
+output:
+  schema: findings/v1
+  severities: [blocker, error, warning, nit]
+  max_findings: 20
+budget:
+  max_tokens: 12000
+  max_tool_calls: 10
+verification:
+  required: true
+  lenses: [groundedness, duplication, materiality]

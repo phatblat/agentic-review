@@ -1,0 +1,52 @@
+name: Evals
+
+# Spec §13.5 item 4: a scheduled live-eval job against the labelled PR
+# set on the self-hosted Spark runner. Drift detection only — never a
+# PR gate: every step below runs to completion and the job never fails
+# the workflow on a review's own exit code, so this can only ever
+# surface drift as posted PR comments for a human to notice, never
+# block anything.
+
+on:
+  schedule:
+    - cron: "0 13 * * 1-5" # weekdays, 13:00 UTC
+  workflow_dispatch: {}
+
+permissions:
+  contents: read
+  pull-requests: write
+
+jobs:
+  evals:
+    runs-on: [self-hosted, spark]
+    steps:
+      - uses: actions/checkout@v7.0.1
+
+      - uses: actions/setup-go@v7.0.0
+        with:
+          go-version-file: go.mod
+
+      - run: go build -o "${RUNNER_TEMP}/agentic-review-bin" ./cmd/agentic-review
+
+      # For each PR labelled agentic-review-eval, synthesize a minimal
+      # pull_request "synchronize" webhook payload from the live PR data
+      # (gh api's pull object is already shaped like go-github's
+      # PullRequestEvent.PullRequest) and run a real review against it.
+      # Every review runs independently; one failure never stops the
+      # rest, and none of them fail this job.
+      - env:
+          GH_TOKEN: ${{ github.token }}
+          GITHUB_TOKEN: ${{ github.token }}
+          GITHUB_EVENT_NAME: pull_request
+          AGENTIC_REVIEW_ENDPOINT: ${{ vars.AGENTIC_REVIEW_ENDPOINT }}
+          AGENTIC_REVIEW_API_KEY: ${{ secrets.AGENTIC_REVIEW_API_KEY }}
+        run: |
+          bin="${RUNNER_TEMP}/agentic-review-bin"
+          for pr in $(gh pr list --label agentic-review-eval --state all --json number --jq '.[].number'); do
+            payload=$(mktemp)
+            gh api "repos/${GITHUB_REPOSITORY}/pulls/${pr}" \
+              --jq '{action: "synchronize", number: .number, pull_request: ., repository: {name: .base.repo.name, owner: {login: .base.repo.owner.login}}}' \
+              > "$payload"
+            "$bin" review --event "$payload" || echo "::warning::evals: review failed for PR #${pr} (drift detection only, not a gate)"
+            rm -f "$payload"
+          done

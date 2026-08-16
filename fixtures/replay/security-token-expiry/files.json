@@ -1,0 +1,9 @@
+[
+  {
+    "path": "src/auth/token.rs",
+    "status": "modified",
+    "additions": 0,
+    "deletions": 2,
+    "patch": "@@ -81,8 +81,6 @@\n     // context line 81\n     pub fn validate(&self) -> bool {\n         if self.value.is_empty() { return false; }\n-        let now = SystemTime::now().duration_since(UNIX_EPOCH).unwrap().as_secs();\n-        if now >= self.expires_at { return false; }\n         true\n     }\n }\n"
+  }
+]

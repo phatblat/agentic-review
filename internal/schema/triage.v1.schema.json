@@ -1,0 +1,35 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "triage.v1",
+  "title": "triage/v1 assessment",
+  "description": "The model-emitted assessment object only; facts are runtime-assembled and never model-emitted.",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["risk", "complexity", "domains", "summary", "rationale", "suggested_personas", "confidence"],
+  "properties": {
+    "risk": {
+      "type": "string",
+      "enum": ["low", "moderate", "high", "critical"]
+    },
+    "complexity": {
+      "type": "string",
+      "enum": ["trivial", "simple", "moderate", "complex"]
+    },
+    "domains": {
+      "type": "array",
+      "maxItems": 11,
+      "items": {
+        "type": "string",
+        "enum": ["auth", "secrets", "network", "storage", "concurrency", "api-surface", "ui", "build", "ci", "dependencies", "data-handling"]
+      }
+    },
+    "summary": { "type": "string", "maxLength": 500 },
+    "rationale": { "type": "string", "maxLength": 2000 },
+    "suggested_personas": {
+      "type": "array",
+      "maxItems": 8,
+      "items": { "type": "string" }
+    },
+    "confidence": { "type": "number", "minimum": 0, "maximum": 1 }
+  }
+}

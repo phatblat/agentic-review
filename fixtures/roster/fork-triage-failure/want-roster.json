@@ -1,0 +1,54 @@
+{
+  "members": [
+    {
+      "id": "fork-guard",
+      "kind": "agent",
+      "capability": "review",
+      "resolved_model": "review/qwen3-32b@spark:8000",
+      "activation_reason": "volunteer_on group 1 matched",
+      "compiled_source": "(facts.pr.is_fork)",
+      "evaluated": true,
+      "max_tokens": 8000,
+      "max_tool_calls": 5
+    },
+    {
+      "id": "logic",
+      "kind": "agent",
+      "capability": "review",
+      "resolved_model": "review/qwen3-32b@spark:8000",
+      "activation_reason": "always",
+      "compiled_source": "true",
+      "evaluated": true,
+      "max_tokens": 12000,
+      "max_tool_calls": 10
+    },
+    {
+      "id": "security",
+      "kind": "agent",
+      "capability": "review",
+      "resolved_model": "review/qwen3-32b@spark:8000",
+      "activation_reason": "volunteer_on group 1 matched",
+      "compiled_source": "(touches(\"**/auth/**\") || touches(\"**/security/**\") || touches(\"**/*.pem\") || touches(\"**/*.key\") || touches(\"**/secrets/**\"))",
+      "evaluated": true,
+      "max_tokens": 12000,
+      "max_tool_calls": 10
+    }
+  ],
+  "verifiers": [
+    "duplication",
+    "groundedness",
+    "injection",
+    "materiality"
+  ],
+  "skipped": [
+    {
+      "id": "config-guard",
+      "reason": "required_when did not match"
+    },
+    {
+      "id": "dep-risk",
+      "reason": "required_when did not match"
+    }
+  ],
+  "total_tokens": 32000
+}

@@ -1,0 +1,30 @@
+id: security
+kind: agent
+summary: finds security defects — injection, broken authz, secret exposure, unsafe deserialization
+activation:
+  volunteer_on:
+    - paths: ["**/auth/**", "**/security/**", "**/*.pem", "**/*.key", "**/secrets/**"]
+    - domains: [auth, secrets, network]
+  required_when: 'assessment.risk >= RISK_HIGH'
+  priority: 10
+model:
+  capability: review
+  min_context: "32k"
+  structured_output: findings/v1
+inputs:
+  scope: full-diff
+  context: [pr-metadata, file-contents-head]
+  tools: [read_file]
+prompt:
+  system: ../prompts/security.md
+  overlays_allowed: true
+output:
+  schema: findings/v1
+  severities: [blocker, error, warning, nit]
+  max_findings: 20
+budget:
+  max_tokens: 12000
+  max_tool_calls: 10
+verification:
+  required: true
+  lenses: [groundedness, duplication, materiality]

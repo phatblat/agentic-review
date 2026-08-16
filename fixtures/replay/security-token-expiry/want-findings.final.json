@@ -1,0 +1,42 @@
+[
+  {
+    "envelope": {
+      "fingerprint": "sha256:d303a23b0f6da35cf478d8ef35e64d8cd05f9eed98681fe810dc46bc50cb2ac0",
+      "head_sha": "headsha",
+      "id": "f-0001",
+      "merged_personas": [
+        "logic",
+        "security"
+      ],
+      "model": "review/review-model@spark:8000",
+      "persona": "logic",
+      "persona_kind": "agent",
+      "verification": {
+        "disposition": "accepted"
+      }
+    },
+    "payload": {
+      "anchor": {
+        "end_line": 84,
+        "kind": "line",
+        "path": "src/auth/token.rs",
+        "ref": "head",
+        "start_line": 84
+      },
+      "category": "security",
+      "claim": "validate() no longer checks expires_at, so an expired token is accepted as valid",
+      "confidence": 0.85,
+      "evidence": [
+        {
+          "end_line": 84,
+          "path": "src/auth/token.rs",
+          "source": "        true",
+          "start_line": 84
+        }
+      ],
+      "severity": "error",
+      "title": "Token expiry check removed"
+    },
+    "schema": "findings/v1"
+  }
+]

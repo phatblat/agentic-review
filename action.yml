@@ -1,0 +1,59 @@
+name: "agentic-review"
+description: >-
+  Variable-sized agentic code review on GitHub pull requests, backed by
+  locally hosted models on self-hosted runners.
+author: "phatblat"
+
+inputs:
+  github_token:
+    description: "Token used to read the PR and post review comments."
+    required: false
+    default: ${{ github.token }}
+  config_path:
+    description: >-
+      Path to the .github/agentic-review directory (or its containing
+      repo root) holding config.yaml and any repo-local personas/.
+    required: false
+    default: ".github/agentic-review"
+  endpoint:
+    description: >-
+      Default inference endpoint for any models[] binding config.yaml
+      leaves blank. Never overrides an endpoint config.yaml did set.
+    required: false
+    default: ""
+  api_key:
+    description: "API key for the inference endpoint(s)."
+    required: false
+    default: ""
+  record:
+    description: >-
+      When "true", record every model request/response pair under
+      ${{ runner.temp }}/agentic-review/recordings (spec §13.3; no
+      redaction — do not enable on a private repo without cleaning the
+      output before reuse as a fixture).
+    required: false
+    default: "false"
+  fail_on:
+    description: >-
+      Override cfg.review.gate.fail_on (blocker|error|warning|nit).
+      Empty uses config.yaml's own value.
+    required: false
+    default: ""
+
+outputs:
+  blocker:
+    description: "Count of accepted findings at blocker severity."
+  error:
+    description: "Count of accepted findings at error severity."
+  warning:
+    description: "Count of accepted findings at warning severity."
+  nit:
+    description: "Count of accepted findings at nit severity."
+  tokens:
+    description: "Total tokens consumed by every persona this run."
+  roster:
+    description: "Compact-JSON roster.json for this run."
+
+runs:
+  using: "node24"
+  main: "shim/index.mjs"

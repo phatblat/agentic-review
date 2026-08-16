@@ -1,0 +1,10 @@
+{
+  "number": 99,
+  "base_sha": "basesha",
+  "head_sha": "headsha",
+  "is_fork": false,
+  "author_association": "CONTRIBUTOR",
+  "labels": [],
+  "draft": false,
+  "commits": 1
+}

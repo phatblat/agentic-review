@@ -1,0 +1,27 @@
+id: config-guard
+kind: deterministic
+summary: guards agentic-review's own config against weakening; immutable, required whenever review config changes
+immutable: true
+activation:
+  required_when: 'facts.diff.touches_review_config'
+model:
+  capability: review
+  min_context: "16k"
+  structured_output: findings/v1
+runtime:
+  handler: builtin/config-guard
+inputs:
+  scope: metadata-only
+  context: [file-contents-base, file-contents-head]
+prompt:
+  system: ../prompts/config-guard.md
+  overlays_allowed: false
+output:
+  schema: findings/v1
+  severities: [blocker, error, warning, nit]
+  max_findings: 20
+budget:
+  max_tokens: 6000
+  max_tool_calls: 0
+verification:
+  required: false

@@ -1,0 +1,7 @@
+[package]
+name = "example"
+version = "0.1.0"
+
+[dependencies]
+openssl = "3.2.1"
+serde = "1.0"

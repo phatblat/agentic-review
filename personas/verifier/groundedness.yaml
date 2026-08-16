@@ -1,0 +1,22 @@
+id: verifier/groundedness
+kind: verifier
+summary: checks that a finding's evidence actually supports its claim; default to refuting
+lens: groundedness
+model:
+  capability: verify
+  min_context: "16k"
+  structured_output: verdicts/v1
+inputs:
+  scope: full-files
+  context: [file-contents-head, file-contents-base]
+  tools: [read_file]
+prompt:
+  system: ../../prompts/verifier/groundedness.md
+  overlays_allowed: false
+output:
+  schema: verdicts/v1
+budget:
+  max_tokens: 4000
+  max_tool_calls: 5
+verification:
+  required: false

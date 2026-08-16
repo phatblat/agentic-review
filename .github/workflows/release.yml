@@ -1,0 +1,66 @@
+name: Release
+
+# Spec §13.1/item 48: on a v* tag, cross-compile every released
+# platform, checksum the artifacts, and publish a GitHub Release. After
+# a real tag lands here, shim/index.mjs's CHECKSUMS map (currently
+# empty — see its own comment) must be updated with this run's
+# checksums.txt entries before the download-fallback ladder step works.
+
+on:
+  push:
+    tags: ["v*"]
+
+permissions:
+  contents: write
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    strategy:
+      matrix:
+        include:
+          - goos: linux
+            goarch: amd64
+          - goos: linux
+            goarch: arm64
+          - goos: darwin
+            goarch: arm64
+    steps:
+      - uses: actions/checkout@v7.0.1
+
+      - uses: actions/setup-go@v7.0.0
+        with:
+          go-version-file: go.mod
+
+      - env:
+          CGO_ENABLED: "0"
+          GOOS: ${{ matrix.goos }}
+          GOARCH: ${{ matrix.goarch }}
+        run: |
+          out="dist/agentic-review-${GOOS}-${GOARCH}"
+          mkdir -p dist
+          go build -trimpath -ldflags "-X main.version=${GITHUB_REF_NAME}" -o "$out" ./cmd/agentic-review
+
+      - uses: actions/upload-artifact@v7.0.1
+        with:
+          name: agentic-review-${{ matrix.goos }}-${{ matrix.goarch }}
+          path: dist/agentic-review-${{ matrix.goos }}-${{ matrix.goarch }}
+
+  release:
+    needs: build
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v7.0.1
+
+      - uses: actions/download-artifact@v8.0.1
+        with:
+          path: dist
+          pattern: agentic-review-*
+          merge-multiple: true
+
+      - working-directory: dist
+        run: sha256sum agentic-review-* > checksums.txt
+
+      - env:
+          GH_TOKEN: ${{ github.token }}
+        run: gh release create "${GITHUB_REF_NAME}" dist/agentic-review-* dist/checksums.txt --title "${GITHUB_REF_NAME}" --generate-notes

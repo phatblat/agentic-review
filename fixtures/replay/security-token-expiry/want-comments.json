@@ -1,0 +1,22 @@
+[
+  {
+    "comments": [
+      {
+        "Body": "\u003c!-- agentic-review/1 kind=finding fp=sha256%3Ad303a23b0f6da35cf478d8ef35e64d8cd05f9eed98681fe810dc46bc50cb2ac0 run=17283 seq=1 persona=logic sev=error --\u003e\n🚨 **Token expiry check removed** · `security` · logic\n\nvalidate() no longer checks expires_at, so an expired token is accepted as valid",
+        "Line": 84,
+        "Path": "src/auth/token.rs",
+        "Side": "RIGHT",
+        "StartLine": 0
+      }
+    ],
+    "head_sha": "headsha",
+    "method": "CreateReview",
+    "number": 99
+  },
+  {
+    "body": "\u003c!-- agentic-review/1 kind=summary run=17283 status=findings history=%5B%7B%22run%22%3A17283%2C%22url%22%3A%22https%3A%2F%2Fgithub.com%2Facme%2Fdemo%2Factions%2Fruns%2F17283%22%2C%22trigger%22%3A%22opened%22%2C%22team%22%3A%5B%22logic%22%2C%22security%22%5D%2C%22tokens%22%3A84%2C%22ms%22%3A0%7D%5D --\u003e\n## agentic-review\n\n⛔️ 0 · 🚨 1 · ⚠️ 0 · 🧼 0\n\n\u003cdetails\u003e\u003csummary\u003eFiltered findings (1)\u003c/summary\u003e\n\n- 🚨 security — Token expiry check removed: duplication: merged with a duplicate finding\n\u003c/details\u003e\n\n---\n👥 logic (review/review-model@spark:8000) · security (review/review-model@spark:8000)\n🔢 84 tokens · ⏱ 0m 0s\n",
+    "id": 1,
+    "method": "CreateIssueComment",
+    "number": 99
+  }
+]

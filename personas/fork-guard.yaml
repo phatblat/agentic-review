@@ -1,0 +1,27 @@
+id: fork-guard
+kind: agent
+summary: reviews fork PRs for input-channel manipulation of the review pipeline itself
+activation:
+  volunteer_on:
+    - expr: 'facts.pr.is_fork'
+  priority: 15
+model:
+  capability: review
+  min_context: "16k"
+  structured_output: findings/v1
+inputs:
+  scope: full-diff
+  context: [pr-metadata, pr-body, file-contents-head]
+prompt:
+  system: ../prompts/fork-guard.md
+  overlays_allowed: true
+output:
+  schema: findings/v1
+  severities: [blocker, error, warning, nit]
+  max_findings: 10
+budget:
+  max_tokens: 8000
+  max_tool_calls: 5
+verification:
+  required: true
+  lenses: [groundedness, injection, duplication]

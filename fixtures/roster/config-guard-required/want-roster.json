@@ -1,0 +1,46 @@
+{
+  "members": [
+    {
+      "id": "config-guard",
+      "kind": "deterministic",
+      "capability": "review",
+      "resolved_model": "review/qwen3-32b@spark:8000",
+      "activation_reason": "required_when matched",
+      "compiled_source": "facts.diff.touches_review_config",
+      "evaluated": true,
+      "max_tokens": 6000,
+      "max_tool_calls": 0
+    },
+    {
+      "id": "logic",
+      "kind": "agent",
+      "capability": "review",
+      "resolved_model": "review/qwen3-32b@spark:8000",
+      "activation_reason": "always",
+      "compiled_source": "true",
+      "evaluated": true,
+      "max_tokens": 12000,
+      "max_tool_calls": 10
+    }
+  ],
+  "verifiers": [
+    "duplication",
+    "groundedness",
+    "materiality"
+  ],
+  "skipped": [
+    {
+      "id": "dep-risk",
+      "reason": "required_when did not match"
+    },
+    {
+      "id": "fork-guard",
+      "reason": "volunteer_on did not match"
+    },
+    {
+      "id": "security",
+      "reason": "volunteer_on did not match"
+    }
+  ],
+  "total_tokens": 18000
+}

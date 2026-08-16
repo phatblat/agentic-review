@@ -1,0 +1,13 @@
+id: verifier/duplication
+kind: verifier
+summary: merges findings that share a fingerprint or anchor; pure code, no model call
+lens: duplication
+inputs:
+  scope: metadata-only
+output:
+  schema: verdicts/v1
+budget:
+  max_tokens: 0
+  max_tool_calls: 0
+verification:
+  required: false

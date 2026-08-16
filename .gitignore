@@ -1,0 +1,6 @@
+/agentic-review
+/.agentic-review/
+/dist/
+*.test
+.env
+.DS_Store

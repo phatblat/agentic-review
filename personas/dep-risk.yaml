@@ -1,0 +1,18 @@
+id: dep-risk
+kind: deterministic
+summary: flags known-vulnerable or freshly-published dependency version bumps via OSV and deps.dev
+activation:
+  required_when: 'has_class("deps")'
+runtime:
+  handler: builtin/dep-risk
+inputs:
+  scope: metadata-only
+output:
+  schema: findings/v1
+  severities: [blocker, error, warning]
+  max_findings: 20
+budget:
+  max_tokens: 0
+  max_tool_calls: 0
+verification:
+  required: false

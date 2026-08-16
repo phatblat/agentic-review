@@ -1,0 +1,21 @@
+id: verifier/materiality
+kind: verifier
+summary: judges whether a finding clears the attention floor worth a reviewer's time
+lens: materiality
+model:
+  capability: verify
+  min_context: "8k"
+  structured_output: verdicts/v1
+inputs:
+  scope: metadata-only
+  context: [pr-metadata]
+prompt:
+  system: ../../prompts/verifier/materiality.md
+  overlays_allowed: false
+output:
+  schema: verdicts/v1
+budget:
+  max_tokens: 2000
+  max_tool_calls: 0
+verification:
+  required: false

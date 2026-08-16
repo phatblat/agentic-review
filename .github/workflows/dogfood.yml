@@ -1,0 +1,45 @@
+name: Dogfood
+
+# Spec §13.5 item 5: the freshest test path for the action, independent
+# of releases and baked runner images. Builds the binary from the PR
+# head and points the action's shim at it directly via
+# AGENTIC_REVIEW_BIN, so every PR to this repo reviews itself with its
+# own in-flight changes.
+
+on:
+  pull_request:
+
+permissions:
+  contents: read
+  pull-requests: write
+
+jobs:
+  dogfood:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v7.0.1
+
+      - uses: actions/setup-go@v7.0.0
+        with:
+          go-version-file: go.mod
+
+      # Stamped to match shim/index.mjs's EXPECTED_VERSION so the shim's
+      # --version check on $AGENTIC_REVIEW_BIN passes (spec §13.1: baking
+      # or pinning a matching version is never a correctness dependency
+      # for any *other* ladder step, but this one is a direct override
+      # the shim still verifies before trusting it).
+      - run: go build -ldflags "-X main.version=v0.1.0" -o "${RUNNER_TEMP}/agentic-review-bin" ./cmd/agentic-review
+
+      - uses: ./
+        env:
+          AGENTIC_REVIEW_BIN: ${{ runner.temp }}/agentic-review-bin
+        with:
+          endpoint: ${{ vars.AGENTIC_REVIEW_ENDPOINT }}
+          api_key: ${{ secrets.AGENTIC_REVIEW_API_KEY }}
+
+      - uses: actions/upload-artifact@v7.0.1
+        if: always()
+        with:
+          name: agentic-review-run
+          path: ${{ runner.temp }}/agentic-review/
+          if-no-files-found: ignore

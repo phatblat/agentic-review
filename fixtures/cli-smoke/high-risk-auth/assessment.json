@@ -1,0 +1,36 @@
+{
+  "facts": {
+    "pr": {
+      "number": 101,
+      "base_ref": "main",
+      "head_sha": "headsha",
+      "is_fork": false,
+      "author_association": "CONTRIBUTOR",
+      "labels": [],
+      "draft": false,
+      "commits": 2
+    },
+    "diff": {
+      "files_changed": 1,
+      "additions": 12,
+      "deletions": 4,
+      "languages": { "go": 16 },
+      "paths": ["internal/auth/session.go"],
+      "classes": ["source"],
+      "touches_review_config": false,
+      "touches_workflows": false,
+      "binary_files": 0,
+      "max_file_additions": 12
+    },
+    "deps": { "changed": [] }
+  },
+  "assessment": {
+    "risk": "high",
+    "complexity": "moderate",
+    "domains": ["auth"],
+    "summary": "loosens session-token validation",
+    "rationale": "touches session expiry checks in an auth-critical path",
+    "suggested_personas": ["security"],
+    "confidence": 0.82
+  }
+}

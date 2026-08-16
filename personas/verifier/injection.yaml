@@ -1,0 +1,21 @@
+id: verifier/injection
+kind: verifier
+summary: screens findings for prompt-injection and exfiltration content; mandatory on fork PRs
+immutable: true
+lens: injection
+model:
+  capability: verify
+  min_context: "8k"
+  structured_output: verdicts/v1
+inputs:
+  scope: metadata-only
+prompt:
+  system: ../../prompts/verifier/injection.md
+  overlays_allowed: false
+output:
+  schema: verdicts/v1
+budget:
+  max_tokens: 2000
+  max_tool_calls: 0
+verification:
+  required: false

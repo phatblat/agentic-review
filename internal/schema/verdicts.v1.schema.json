@@ -1,0 +1,25 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "verdicts.v1",
+  "title": "verdicts/v1 response",
+  "description": "The model-emitted per-finding verdicts from a verify-capability call. The runtime adds lens and checked when stamping these onto a finding's envelope.",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["verdicts"],
+  "properties": {
+    "verdicts": {
+      "type": "array",
+      "maxItems": 50,
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": ["finding_id", "result", "reason"],
+        "properties": {
+          "finding_id": { "type": "string" },
+          "result": { "type": "string", "enum": ["pass", "fail"] },
+          "reason": { "type": "string", "maxLength": 1000 }
+        }
+      }
+    }
+  }
+}

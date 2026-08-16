@@ -1,0 +1,22 @@
+id: triage
+kind: triage
+summary: assesses risk, complexity, and domains; proposes an initial reviewer roster
+activation:
+  always: true
+model:
+  capability: triage
+  min_context: "8k"
+  structured_output: triage/v1
+inputs:
+  scope: metadata-only
+  context: [pr-metadata, pr-body, commit-messages]
+prompt:
+  system: ../prompts/triage.md
+  overlays_allowed: false
+output:
+  schema: triage/v1
+budget:
+  max_tokens: 2000
+  max_tool_calls: 0
+verification:
+  required: false
