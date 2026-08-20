@@ -70,6 +70,10 @@ type Request struct {
 	Tools          []Tool          `json:"tools,omitempty"`
 	ToolChoice     string          `json:"tool_choice,omitempty"`
 	ResponseFormat *ResponseFormat `json:"response_format,omitempty"`
+	// ReasoningEffort is OpenAI's reasoning_effort, omitted when empty.
+	// Reasoning tokens are billed as completion tokens and count against
+	// MaxTokens, so this is a budget control as much as a quality one.
+	ReasoningEffort string `json:"reasoning_effort,omitempty"`
 }
 
 // Response is a /v1/chat/completions response.

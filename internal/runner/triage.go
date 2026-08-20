@@ -69,9 +69,10 @@ func RunTriage(ctx context.Context, cl infer.Client, reg persona.Registry, promp
 
 	for attempt := 0; attempt <= maxTriageRetries; attempt++ {
 		req := &infer.Request{
-			Model:     binding.Model,
-			Messages:  messages,
-			MaxTokens: rp.Budget.MaxTokens,
+			Model:           binding.Model,
+			Messages:        messages,
+			MaxTokens:       rp.Budget.MaxTokens,
+			ReasoningEffort: binding.ReasoningEffort,
 			ResponseFormat: &infer.ResponseFormat{
 				Type:       "json_schema",
 				JSONSchema: infer.JSONSchemaSpec{Name: "triage_v1", Schema: schemaRaw, Strict: true},

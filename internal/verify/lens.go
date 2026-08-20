@@ -143,9 +143,10 @@ func callVerifyBatch(ctx context.Context, env Env, personaID string, subjects []
 	retries := 0
 	for turn := 0; turn < maxVerifyTurns; turn++ {
 		req := &infer.Request{
-			Model:     binding.Model,
-			Messages:  messages,
-			MaxTokens: rp.Budget.MaxTokens,
+			Model:           binding.Model,
+			Messages:        messages,
+			MaxTokens:       rp.Budget.MaxTokens,
+			ReasoningEffort: binding.ReasoningEffort,
 			ResponseFormat: &infer.ResponseFormat{
 				Type:       "json_schema",
 				JSONSchema: infer.JSONSchemaSpec{Name: "verdicts_v1", Schema: schemaRaw, Strict: true},

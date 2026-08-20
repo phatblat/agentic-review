@@ -248,9 +248,10 @@ func runAgent(ctx context.Context, deps TeamDeps, rp *persona.ResolvedPersona) (
 
 	for turn := 0; turn < maxAgentTurns; turn++ {
 		req := &infer.Request{
-			Model:     binding.Model,
-			Messages:  messages,
-			MaxTokens: rp.Budget.MaxTokens,
+			Model:           binding.Model,
+			Messages:        messages,
+			MaxTokens:       rp.Budget.MaxTokens,
+			ReasoningEffort: binding.ReasoningEffort,
 			ResponseFormat: &infer.ResponseFormat{
 				Type:       "json_schema",
 				JSONSchema: infer.JSONSchemaSpec{Name: "findings_v1", Schema: schemaRaw, Strict: true},
