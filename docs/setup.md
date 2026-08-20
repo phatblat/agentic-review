@@ -29,6 +29,31 @@ This runs the triage stage against the real endpoint and asserts a recording
 was written. It skips with a notice — never fails — when either
 `AGENTIC_REVIEW_ENDPOINT` or `AGENTIC_REVIEW_MODEL` is unset.
 
+### Grammar-backend constraints
+
+Structured output is enforced by the server's grammar backend, not by this
+binary, and those backends implement a subset of JSON Schema. `uniqueItems`
+in particular is rejected outright:
+
+```
+400 Grammar error: Unimplemented keys: ["uniqueItems"]
+```
+
+Schemas under `internal/schema/` must therefore stay within the supported
+subset, and set-valued fields are normalized in the decoder instead (see
+`schema.DecodeAssessment`). Adding a schema keyword is a live-endpoint change:
+verify it with `just live-smoke` before relying on it.
+
+### Budgets are model-dependent
+
+Every persona's `budget.max_tokens` becomes the request's `max_tokens`, so a
+verbose or reasoning-heavy model can exhaust a budget that a terser one fits
+inside. Exhaustion is reported as truncation naming the persona and its
+budget, and the retry asks for a terser answer at the same ceiling — that
+recovers most cases, but a persona that truncates on every attempt needs its
+budget raised. Measured on `nvidia/Qwen3.6-35B-A3B-NVFP4`: triage spends
+1000–1900 completion tokens on real PRs, against the builtin's 6000.
+
 ## 2. Runner
 
 The review job needs network reach to both `api.github.com` and the inference
@@ -42,6 +67,10 @@ a self-hosted runner on that VLAN.
   review job never executes repository code — diffs and file contents are read
   through the GitHub API — but the runner still handles attacker-controlled PR
   content.
+- An `.local` endpoint hostname resolves over mDNS, which a container often
+  cannot do: an ephemeral containerized runner needs host networking, an
+  `/etc/hosts` entry, or a plain IP in `AGENTIC_REVIEW_ENDPOINT`. A runner
+  living on the inference host itself can use `127.0.0.1` and sidestep it.
 - Egress allowlist: GitHub endpoints (per `api.github.com/meta`) plus the
   inference endpoint. Add `api.osv.dev` and `api.deps.dev` if the repo has
   dependency manifests `internal/classes/manifest` recognizes (`Cargo.toml`,
