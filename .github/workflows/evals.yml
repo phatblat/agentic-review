@@ -29,9 +29,13 @@ jobs:
       - run: go build -o "${RUNNER_TEMP}/agentic-review-bin" ./cmd/agentic-review
 
       # For each PR labelled agentic-review-eval, synthesize a minimal
-      # pull_request "synchronize" webhook payload from the live PR data
-      # (gh api's pull object is already shaped like go-github's
+      # pull_request "ready_for_review" webhook payload from the live PR
+      # data (gh api's pull object is already shaped like go-github's
       # PullRequestEvent.PullRequest) and run a real review against it.
+      # "ready_for_review" is the one action ghevent.Gate always lets
+      # through: no draft skip, and no review-once skip on a PR this job
+      # has already reviewed on a previous day.
+      #
       # Every review runs independently; one failure never stops the
       # rest, and none of them fail this job.
       - env:
@@ -45,7 +49,7 @@ jobs:
           for pr in $(gh pr list --label agentic-review-eval --state all --json number --jq '.[].number'); do
             payload=$(mktemp)
             gh api "repos/${GITHUB_REPOSITORY}/pulls/${pr}" \
-              --jq '{action: "synchronize", number: .number, pull_request: ., repository: {name: .base.repo.name, owner: {login: .base.repo.owner.login}}}' \
+              --jq '{action: "ready_for_review", number: .number, pull_request: ., repository: {name: .base.repo.name, owner: {login: .base.repo.owner.login}}}' \
               > "$payload"
             "$bin" review --event "$payload" || echo "::warning::evals: review failed for PR #${pr} (drift detection only, not a gate)"
             rm -f "$payload"
