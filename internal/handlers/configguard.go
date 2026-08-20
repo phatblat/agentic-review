@@ -31,9 +31,14 @@ var securityRelevantPersonas = map[string]bool{
 // internal/handlers), so PR content and the system prompt are passed as
 // plain fields rather than runner.PRContext.
 type ConfigGuardInput struct {
-	Client       infer.Client
-	Cfg          *config.Config
-	ReviewModel  *persona.Model
+	Client      infer.Client
+	Cfg         *config.Config
+	ReviewModel *persona.Model
+	// MaxTokens is the resolved persona's budget.max_tokens, applied to
+	// the intent-judgment call. config-guard is immutable (spec §3.1), so
+	// this is the builtin's own declared budget and no config layer can
+	// shrink it — but it still has to reach the request.
+	MaxTokens    int
 	SystemPrompt string
 	Store        *gh.ContentStore
 	Files        []gh.File
@@ -239,7 +244,8 @@ func judgeIntent(ctx context.Context, in ConfigGuardInput, diffText string) ([]s
 	)
 
 	req := &infer.Request{
-		Model: binding.Model,
+		Model:     binding.Model,
+		MaxTokens: in.MaxTokens,
 		Messages: []infer.Message{
 			{Role: "system", Content: in.SystemPrompt},
 			{Role: "user", Content: userContent},
@@ -258,6 +264,12 @@ func judgeIntent(ctx context.Context, in ConfigGuardInput, diffText string) ([]s
 	}
 	findingsResp, err := schema.DecodeFindings([]byte(resp.Choices[0].Message.Content))
 	if err != nil {
+		if infer.Truncated(resp) {
+			// Single-shot by design (no retry loop here), so report the
+			// actionable cause rather than a decode error the operator
+			// would debug as a schema problem.
+			return nil, fmt.Errorf("response truncated at the %d-token budget; raise config-guard's budget.max_tokens: %w", req.MaxTokens, err)
+		}
 		return nil, err
 	}
 	return findingsResp.Findings, nil

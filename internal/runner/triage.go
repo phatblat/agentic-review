@@ -85,6 +85,7 @@ func RunTriage(ctx context.Context, cl infer.Client, reg persona.Registry, promp
 			return nil, fmt.Errorf("runner: triage: response has no choices")
 		}
 		content := resp.Choices[0].Message.Content
+		truncated := infer.Truncated(resp)
 
 		assessment, verr := schema.DecodeAssessment([]byte(content))
 		if verr == nil {
@@ -92,8 +93,21 @@ func RunTriage(ctx context.Context, cl infer.Client, reg persona.Registry, promp
 		}
 
 		if attempt == maxTriageRetries {
-			logx.Warn("runner: triage failed after %d retries; using fallback roster", maxTriageRetries)
+			if truncated {
+				logx.Warn("runner: triage truncated at its %d-token budget on every attempt; raise the triage persona's budget.max_tokens (using fallback roster)", rp.Budget.MaxTokens)
+			} else {
+				logx.Warn("runner: triage failed after %d retries; using fallback roster", maxTriageRetries)
+			}
 			return nil, ErrTriageFailed
+		}
+		if truncated {
+			// Restate the request instead of appending the fragment: the
+			// ceiling is unchanged, so the only way the next attempt fits
+			// is by being shorter, and carrying a truncated answer forward
+			// just leaves less room to be shorter in.
+			logx.Warn("runner: triage truncated at its %d-token budget; retrying for a terser answer", rp.Budget.MaxTokens)
+			messages = append(messages[:2:2], infer.Message{Role: "user", Content: infer.TruncationRetryPrompt})
+			continue
 		}
 		messages = append(messages,
 			infer.Message{Role: "assistant", Content: content},

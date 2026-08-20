@@ -187,9 +187,19 @@ func callVerifyBatch(ctx context.Context, env Env, personaID string, subjects []
 		}
 
 		if retries >= maxVerifyRetries {
+			if infer.Truncated(resp) {
+				return nil, fmt.Errorf("%s: response truncated at the %d-token budget on every attempt; raise this lens's budget.max_tokens", personaID, rp.Budget.MaxTokens)
+			}
 			return nil, fmt.Errorf("%s: schema validation failed after %d retries: %w", personaID, maxVerifyRetries, verr)
 		}
 		retries++
+		if infer.Truncated(resp) {
+			// Ask for less rather than replaying the fragment: the budget
+			// is unchanged, so a verbatim retry truncates identically.
+			logx.Warn("verify: %s truncated at its %d-token budget; retrying for a terser answer", personaID, rp.Budget.MaxTokens)
+			messages = append(messages, infer.Message{Role: "user", Content: infer.TruncationRetryPrompt})
+			continue
+		}
 		messages = append(messages,
 			infer.Message{Role: "assistant", Content: msg.Content},
 			infer.Message{Role: "user", Content: fmt.Sprintf(

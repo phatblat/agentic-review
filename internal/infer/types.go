@@ -84,6 +84,26 @@ type Choice struct {
 	FinishReason string  `json:"finish_reason"`
 }
 
+// Truncated reports whether resp was cut off at the request's max_tokens
+// ceiling instead of completing on its own.
+//
+// Every structured-output caller needs this before it interprets a decode
+// failure: a truncated response is never valid JSON, but its cause is a
+// budget too small for the model, not a model that misunderstood the
+// schema. Retrying a truncation with the same ceiling reproduces it
+// exactly, and re-feeding the fragment as conversation only spends the
+// next attempt's context on it.
+func Truncated(resp *Response) bool {
+	return len(resp.Choices) > 0 && resp.Choices[0].FinishReason == "length"
+}
+
+// TruncationRetryPrompt is the corrective turn every structured-output
+// caller sends after a truncated response: the budget is fixed, so the
+// only thing that can change is the length of what the model tries to
+// say.
+const TruncationRetryPrompt = "Your previous response was cut off before it finished — it exceeded the token budget for this turn. " +
+	"Respond again with a single JSON object matching the schema exactly, nothing else, and keep every free-text field to one short sentence."
+
 // PromptTokensDetails is the nested prompt-token breakdown Casper (and
 // other OpenAI-compatible servers with prompt caching) report alongside
 // the flat prompt_tokens count.

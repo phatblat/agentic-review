@@ -191,6 +191,7 @@ func runDeterministic(ctx context.Context, deps TeamDeps, rp *persona.ResolvedPe
 			Client:       infer.Select(deps.Client, deps.ReplayDir, deps.RecordDir, rp.ID),
 			Cfg:          deps.Cfg,
 			ReviewModel:  rp.Model,
+			MaxTokens:    rp.Budget.MaxTokens,
 			SystemPrompt: rp.SystemPrompt(deps.Prompts),
 			Store:        deps.Store,
 			Files:        deps.Files,
@@ -288,9 +289,19 @@ func runAgent(ctx context.Context, deps TeamDeps, rp *persona.ResolvedPersona) (
 		}
 
 		if retries >= maxAgentRetries {
+			if infer.Truncated(resp) {
+				return nil, nil, totalTokens, fmt.Errorf("response truncated at the %d-token budget on every attempt; raise %s's budget.max_tokens", rp.Budget.MaxTokens, rp.ID)
+			}
 			return nil, nil, totalTokens, fmt.Errorf("schema validation failed after %d retries: %w", maxAgentRetries, verr)
 		}
 		retries++
+		if infer.Truncated(resp) {
+			// Ask for less rather than replaying the fragment: the budget
+			// is unchanged, so a verbatim retry truncates identically.
+			logx.Warn("runner: %s truncated at its %d-token budget; retrying for a terser answer", rp.ID, rp.Budget.MaxTokens)
+			messages = append(messages, infer.Message{Role: "user", Content: infer.TruncationRetryPrompt})
+			continue
+		}
 		messages = append(messages,
 			infer.Message{Role: "assistant", Content: msg.Content},
 			infer.Message{Role: "user", Content: fmt.Sprintf(
