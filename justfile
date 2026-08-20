@@ -42,13 +42,13 @@ smoke:
     @echo "smoke: OK"
 
 # Live smoke (Verification item 10) — only runs when a real inference
-# endpoint is configured; skips with a notice otherwise and never fails
-# the build for a missing endpoint.
+# endpoint and model are configured; skips with a notice otherwise and
+# never fails the build for missing deployment settings.
 live-smoke:
     #!/usr/bin/env bash
     set -euo pipefail
-    if [ -z "${AGENTIC_REVIEW_ENDPOINT:-}" ]; then
-        echo "live-smoke: AGENTIC_REVIEW_ENDPOINT is unset, skipping"
+    if [ -z "${AGENTIC_REVIEW_ENDPOINT:-}" ] || [ -z "${AGENTIC_REVIEW_MODEL:-}" ]; then
+        echo "live-smoke: AGENTIC_REVIEW_ENDPOINT or AGENTIC_REVIEW_MODEL is unset, skipping"
         exit 0
     fi
     rm -rf /tmp/agentic-review-live-smoke-rec

@@ -31,7 +31,7 @@ func cmdTriage(ctx context.Context, args []string) int {
 	diffPath := fs.String("diff", "", "path to a unified diff file (required)")
 	recordDir := fs.String("record", "", "directory to record model request/response pairs into")
 	endpoint := fs.String("endpoint", os.Getenv("AGENTIC_REVIEW_ENDPOINT"), "inference endpoint for the triage capability")
-	model := fs.String("model", "", "model name for the triage capability")
+	model := fs.String("model", os.Getenv("AGENTIC_REVIEW_MODEL"), "model name for the triage capability")
 	apiKeyEnv := fs.String("api-key-env", "AGENTIC_REVIEW_API_KEY", "env var holding the inference API key")
 	if err := fs.Parse(args); err != nil {
 		return 1
@@ -42,6 +42,10 @@ func cmdTriage(ctx context.Context, args []string) int {
 	}
 	if *endpoint == "" {
 		fmt.Fprintln(os.Stderr, "triage: --endpoint or $AGENTIC_REVIEW_ENDPOINT is required")
+		return 1
+	}
+	if *model == "" {
+		fmt.Fprintln(os.Stderr, "triage: --model or $AGENTIC_REVIEW_MODEL is required")
 		return 1
 	}
 
@@ -59,8 +63,19 @@ func cmdTriage(ctx context.Context, args []string) int {
 		return 1
 	}
 	cfg := config.Defaults()
-	cfg.Models = map[string]config.ModelBinding{
-		"triage": {Endpoint: *endpoint, Model: *model, APIKeyEnv: *apiKeyEnv},
+	// This command runs exactly one persona, but persona.Resolve's
+	// load-time capability check (spec §10.2) covers every persona that
+	// survives resolution — including the review/verify builtins it never
+	// invokes. Bind every capability class the builtin roster references
+	// to the one endpoint/model the flags name, so a standalone triage
+	// run needs no config.yaml.
+	binding := config.ModelBinding{Endpoint: *endpoint, Model: *model, APIKeyEnv: *apiKeyEnv}
+	cfg.Models = map[string]config.ModelBinding{}
+	for _, def := range builtins {
+		if def.Model == nil || def.Model.Capability == "" {
+			continue
+		}
+		cfg.Models[def.Model.Capability] = binding
 	}
 	reg, err := persona.Resolve(builtins, nil, cfg)
 	if err != nil {
