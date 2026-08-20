@@ -1,0 +1,28 @@
+# agentic-review's own deployment config — this repo dogfoods itself
+# (dogfood.yml on every PR, evals.yml on a schedule).
+#
+# Every capability class referenced by a resolved persona needs a binding
+# here or persona.Resolve fails closed at load time (spec §10.2), so all
+# three builtin classes are bound even when a given run activates only
+# some of them.
+#
+# endpoint is deliberately blank: the deployed inference host is supplied
+# at runtime by the action's `endpoint` input (dogfood.yml and evals.yml
+# pass ${{ vars.AGENTIC_REVIEW_ENDPOINT }}) or by $AGENTIC_REVIEW_ENDPOINT
+# for local `just validate` / `just live-smoke` runs. A blank binding is
+# the only kind that input fills; it never overrides a value set here.
+version: 1
+
+models:
+  triage:
+    endpoint: ""
+    model: nvidia/Qwen3.6-35B-A3B-NVFP4
+    context_window: 131072
+  review:
+    endpoint: ""
+    model: nvidia/Qwen3.6-35B-A3B-NVFP4
+    context_window: 131072
+  verify:
+    endpoint: ""
+    model: nvidia/Qwen3.6-35B-A3B-NVFP4
+    context_window: 131072
