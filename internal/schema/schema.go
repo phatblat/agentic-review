@@ -90,6 +90,14 @@ func Validate(name string, body []byte) error {
 }
 
 // DecodeAssessment validates and decodes a triage/v1 response.
+//
+// domains and suggested_personas are set-valued, but the schema cannot
+// say so: JSON Schema's uniqueItems is rejected outright by the
+// grammar-constrained decoding backends this talks to ("Grammar error:
+// Unimplemented keys"), and a guided model with room to fill an array
+// will happily emit ["ci", "ci", ...] up to maxItems. Deduplication
+// therefore lives here, preserving first-occurrence order so the
+// artifact reads the way the model ranked it.
 func DecodeAssessment(body []byte) (*Assessment, error) {
 	if err := Validate("triage.v1", body); err != nil {
 		return nil, err
@@ -98,7 +106,28 @@ func DecodeAssessment(body []byte) (*Assessment, error) {
 	if err := json.Unmarshal(body, &out); err != nil {
 		return nil, fmt.Errorf("schema: decode triage.v1: %w", err)
 	}
+	out.Domains = dedupe(out.Domains)
+	out.SuggestedPersonas = dedupe(out.SuggestedPersonas)
 	return &out, nil
+}
+
+// dedupe returns in's distinct elements in first-occurrence order. A nil
+// or already-distinct slice is returned as-is, so the common case
+// allocates nothing.
+func dedupe(in []string) []string {
+	if len(in) < 2 {
+		return in
+	}
+	seen := make(map[string]struct{}, len(in))
+	out := in[:0:len(in)]
+	for _, s := range in {
+		if _, dup := seen[s]; dup {
+			continue
+		}
+		seen[s] = struct{}{}
+		out = append(out, s)
+	}
+	return out
 }
 
 // DecodeFindings validates and decodes a findings/v1 response.
