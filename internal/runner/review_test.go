@@ -11,6 +11,7 @@ import (
 	"github.com/phatblat/agentic-review/internal/gh"
 	"github.com/phatblat/agentic-review/internal/infer"
 	"github.com/phatblat/agentic-review/internal/render"
+	"github.com/phatblat/agentic-review/internal/roster"
 )
 
 // reviewFixture builds a gh.Fake fixture directory (the simulated GitHub
@@ -350,6 +351,18 @@ func TestReviewFullPipelineHappyPath(t *testing.T) {
 	}
 	if !contains(string(rosterData), `"id": "logic"`) {
 		t.Errorf("roster.json = %s, want logic present (activation.always: true)", rosterData)
+	}
+
+	budgetData, err := os.ReadFile(filepath.Join(outDir, "budget.json"))
+	if err != nil {
+		t.Fatalf("read budget.json: %v", err)
+	}
+	var budget roster.Budget
+	if err := json.Unmarshal(budgetData, &budget); err != nil {
+		t.Fatalf("decode budget.json: %v", err)
+	}
+	if budget.Usage.Prompt == 0 || budget.Usage.CachedPrompt == 0 || budget.Usage.Total == 0 {
+		t.Errorf("budget.json usage = %+v, want nonzero Prompt/CachedPrompt/Total (the live meter should observe triage, tier-2, and verification)", budget.Usage)
 	}
 }
 

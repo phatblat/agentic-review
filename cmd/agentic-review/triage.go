@@ -68,7 +68,7 @@ func cmdTriage(ctx context.Context, args []string) int {
 		return 1
 	}
 
-	var cl infer.Client = infer.NewHTTPClient(os.Getenv(*apiKeyEnv))
+	var cl infer.Client = infer.NewHTTPClient(os.Getenv(*apiKeyEnv), inferenceHeaders())
 	if *recordDir != "" {
 		cl = infer.NewRecorder(*recordDir, "triage", cl)
 	}

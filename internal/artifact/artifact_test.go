@@ -203,6 +203,7 @@ func TestWriteBudgetMapKeysSorted(t *testing.T) {
 	b := &roster.Budget{
 		Allocated: map[string]int{"zeta": 100, "alpha": 200},
 		Consumed:  map[string]int{"zeta": 50, "alpha": 75},
+		Usage:     roster.TokenUsage{Prompt: 900, CachedPrompt: 300, Completion: 225, Total: 1125},
 	}
 	if err := w.WriteBudget(b); err != nil {
 		t.Fatalf("WriteBudget: %v", err)
@@ -215,6 +216,11 @@ func TestWriteBudgetMapKeysSorted(t *testing.T) {
 	zetaIdx := indexOf(string(data), "zeta")
 	if alphaIdx < 0 || zetaIdx < 0 || alphaIdx > zetaIdx {
 		t.Errorf("budget.json map keys not sorted: %s", data)
+	}
+	for _, field := range []string{`"prompt": 900`, `"cached_prompt": 300`, `"completion": 225`, `"total": 1125`} {
+		if !contains(string(data), field) {
+			t.Errorf("budget.json = %s, want usage field %s", data, field)
+		}
 	}
 }
 

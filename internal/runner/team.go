@@ -254,7 +254,6 @@ func runAgent(ctx context.Context, deps TeamDeps, rp *persona.ResolvedPersona) (
 				Type:       "json_schema",
 				JSONSchema: infer.JSONSchemaSpec{Name: "findings_v1", Schema: schemaRaw, Strict: true},
 			},
-			GuidedJSON: schemaRaw,
 		}
 		if len(toolDefs) > 0 {
 			req.Tools = toolDefs

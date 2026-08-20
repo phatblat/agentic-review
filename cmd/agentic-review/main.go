@@ -6,6 +6,7 @@ package main
 import (
 	"context"
 	"fmt"
+	"net/http"
 	"os"
 )
 
@@ -48,4 +49,22 @@ func run(ctx context.Context, args []string) int {
 		return 1
 	}
 	return cmd(ctx, args[1:])
+}
+
+// inferenceHeaders builds the headers every live inference request
+// carries beyond Content-Type/Authorization: x-session-id set to
+// $GITHUB_RUN_ID when the process has one, for Casper/SR run
+// attribution telemetry (spec §10). Both `review` (the GitHub Action
+// entrypoint) and standalone `triage` call this, so the Action and a
+// direct CLI invocation share one attribution rule; shim/index.mjs
+// already passes the inherited process environment through to this
+// binary, so no shim change is needed. An empty/absent GITHUB_RUN_ID
+// (local CLI usage) omits the header rather than inventing an unstable
+// identifier.
+func inferenceHeaders() http.Header {
+	h := http.Header{}
+	if runID := os.Getenv("GITHUB_RUN_ID"); runID != "" {
+		h.Set("x-session-id", runID)
+	}
+	return h
 }

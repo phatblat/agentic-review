@@ -248,7 +248,6 @@ func judgeIntent(ctx context.Context, in ConfigGuardInput, diffText string) ([]s
 			Type:       "json_schema",
 			JSONSchema: infer.JSONSchemaSpec{Name: "findings_v1", Schema: schemaRaw, Strict: true},
 		},
-		GuidedJSON: schemaRaw,
 	}
 	resp, err := in.Client.Complete(ctx, binding.Endpoint, req)
 	if err != nil {

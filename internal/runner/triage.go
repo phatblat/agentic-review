@@ -76,7 +76,6 @@ func RunTriage(ctx context.Context, cl infer.Client, reg persona.Registry, promp
 				Type:       "json_schema",
 				JSONSchema: infer.JSONSchemaSpec{Name: "triage_v1", Schema: schemaRaw, Strict: true},
 			},
-			GuidedJSON: schemaRaw,
 		}
 		resp, err := cl.Complete(ctx, binding.Endpoint, req)
 		if err != nil {

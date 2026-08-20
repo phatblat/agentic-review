@@ -150,7 +150,6 @@ func callVerifyBatch(ctx context.Context, env Env, personaID string, subjects []
 				Type:       "json_schema",
 				JSONSchema: infer.JSONSchemaSpec{Name: "verdicts_v1", Schema: schemaRaw, Strict: true},
 			},
-			GuidedJSON: schemaRaw,
 		}
 		if len(toolDefs) > 0 {
 			req.Tools = toolDefs

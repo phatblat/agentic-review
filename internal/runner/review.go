@@ -161,6 +161,16 @@ func Review(ctx context.Context, eventName string, payload []byte, deps ReviewDe
 		return failInfra(ctx, deps, ev, "artifact init", err, priorHistory)
 	}
 
+	// One live infer.Meter observes every model call this run makes —
+	// triage, tier-2 (including config-guard's model half), and
+	// verification — so budget.json's usage block (spec §13.3) reports
+	// run-level prompt/cached-prompt/completion/total tokens. Replay
+	// mode still routes through deps.Client (never touched by the
+	// meter here), so it stays deterministic and reports zero live
+	// usage by design.
+	meter := infer.NewMeter(deps.Client)
+	deps.Client = meter
+
 	start := time.Now()
 
 	assessment, triageErr := RunTriage(ctx, infer.Select(deps.Client, deps.ReplayDir, deps.RecordDir, "triage"), reg, prompts, cfg, f, TriageInput{
@@ -206,6 +216,14 @@ func Review(ctx context.Context, eventName string, payload []byte, deps ReviewDe
 	findings, verdicts, err := verify.Run(ctx, findings, verifyEnv)
 	if err != nil {
 		return failInfra(ctx, deps, ev, "verification lenses", err, priorHistory)
+	}
+
+	usage := meter.Usage()
+	budget.Usage = roster.TokenUsage{
+		Prompt:       usage.PromptTokens,
+		CachedPrompt: usage.PromptTokensDetails.CachedTokens,
+		Completion:   usage.CompletionTokens,
+		Total:        usage.TotalTokens,
 	}
 
 	_ = art.WriteFindingsRaw(findings)
@@ -421,7 +439,14 @@ func teamFooter(rst *roster.Roster) []render.TeamMember {
 	return out
 }
 
+// totalConsumed prefers b.Usage.Total, the live infer.Meter's run-level
+// total (covering triage and verification alongside tier-2, spec
+// §13.3), falling back to the sum of per-persona Consumed for replay
+// artifacts, where no live meter ever ran and Usage stays zero-valued.
 func totalConsumed(b *roster.Budget) int {
+	if b.Usage.Total != 0 {
+		return b.Usage.Total
+	}
 	total := 0
 	for _, n := range b.Consumed {
 		total += n

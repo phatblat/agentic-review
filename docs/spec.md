@@ -469,11 +469,15 @@ fails). "Pass on nits-only" = `fail_on: warning`. On PRs where
 
 ### 10.1 Client contract
 
-OpenAI-compatible `/v1/chat/completions`. Structured output via guided decoding
-(`response_format` json_schema / vLLM `guided_json`) with schemas compiled from
-`triage/v1`, `findings/v1`, `verdicts/v1`. Persona tools (`read_file`, `osv_lookup`)
-use the tool-calling API with the loop owned by the Go harness; tools are
-runtime-mediated capabilities, never direct model network access.
+OpenAI-compatible `/v1/chat/completions`. Structured output via `response_format`
+json_schema — the sole structured-output field the request body carries; no
+vLLM `guided_json` extra is sent alongside it. (A separately operated bare
+vLLM endpoint that only accepts `guided_json` would need an explicit endpoint
+dialect setting in a future change; v1 emits `response_format` unconditionally
+and never both.) Schemas are compiled from `triage/v1`, `findings/v1`,
+`verdicts/v1`. Persona tools (`read_file`, `osv_lookup`) use the tool-calling
+API with the loop owned by the Go harness; tools are runtime-mediated
+capabilities, never direct model network access.
 
 Deployment note (Qwen on vLLM): enable `--enable-auto-tool-choice
 --tool-call-parser hermes` for parseable tool calls.
@@ -495,6 +499,41 @@ Budgets are tokens-only in v1. Hard ceilings (max team size, max tokens/PR, max 
 calls) are baked into the binary and enforced independent of repo config; repo config
 may lower, never raise. Rate limits at the inference gateway are the recommended
 second layer (outside the blast radius of any repo content).
+
+### 10.3 Throughput and prompt caching
+
+The deployed inference service caps throughput at 500k tokens/minute (TPM) and
+120–200 requests/minute (RPM). TPM is the binding constraint for any
+substantial persona: an approximately 100k-token persona prompt is limited to
+about five requests/minute by TPM (500,000 / 100,000), long before the RPM
+ceiling is reached. The tier-2 team's four-persona concurrency semaphore
+(§3.4's `runWave`, min(team size, 4)) can legitimately burst several such
+requests at once and hit this ceiling; 429 retries (below) provide
+backpressure so a burst degrades to bounded latency instead of a hard
+failure, but they do not increase the service's actual throughput.
+
+**Retry contract.** A 429 response retries up to three times (four attempts
+total). Its `Retry-After` header, when present, sets that attempt's delay —
+either an integer count of seconds or an HTTP-date — capped at 60s per sleep;
+a missing or malformed header falls back to the fixed `250ms/1s/4s` backoff.
+HTTP 5xx and network errors use the same three-retry, four-attempt shape with
+the fixed backoff (no `Retry-After` to honor). Every other 4xx response is
+immediately fatal, never retried.
+
+**Prompt-cache observability.** The client reads
+`usage.prompt_tokens_details.cached_tokens` from every response. `budget.json`
+(§13.3) reports a run-level `usage` object — `prompt`, `cached_prompt`,
+`completion`, `total` tokens — aggregated across triage, tier-2, and
+verification by one live meter per run. Cache hit ratio is
+`cached_prompt / prompt` when `prompt` is nonzero. Message ordering keeps the
+system prompt first and stable across turns so the deployment's own prefix
+cache can key on it; caching is a latency/throughput optimization the client
+observes, never a correctness dependency.
+
+**Run attribution.** The client sends `x-session-id` equal to `GITHUB_RUN_ID`
+when the process has one (omitted for local CLI usage). It exists solely for
+service-side telemetry and run attribution — never as a cache key or any
+other correctness input.
 
 ---
 
@@ -651,10 +690,12 @@ agentic-review fetch <pr|run|job url> [--out fixtures/] [--run <id>]
 
 `triage.json`, `roster.json` (per-persona activation reasons + compiled CEL +
 evaluation trace), `findings.raw.json`, `verdicts.json`, `findings.final.json`,
-`budget.json` (allocated vs consumed per persona), `recordings/` (opt-in via
-`--record`; raw, **no redaction** — private-repo content must be cleaned manually
-before fixture use; public fixtures come from the action repo's own PRs or
-synthetic diffs).
+`budget.json` (allocated vs consumed per persona, plus a run-level `usage`
+object — `prompt`, `cached_prompt`, `completion`, `total` tokens, §10.3 —
+aggregated by one live meter across triage, tier-2, and verification),
+`recordings/` (opt-in via `--record`; raw, **no redaction** — private-repo
+content must be cleaned manually before fixture use; public fixtures come
+from the action repo's own PRs or synthetic diffs).
 
 ### 13.4 Plan visibility
 

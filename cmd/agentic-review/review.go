@@ -86,7 +86,7 @@ func cmdReview(ctx context.Context, args []string) int {
 		runURL = fmt.Sprintf("https://github.com/%s/actions/runs/%d", repo, runID)
 	}
 
-	var cl infer.Client = infer.NewHTTPClient(os.Getenv(*apiKeyEnv))
+	var cl infer.Client = infer.NewHTTPClient(os.Getenv(*apiKeyEnv), inferenceHeaders())
 
 	exit := runner.Review(ctx, eventName, payload, runner.ReviewDeps{
 		Port:             port,

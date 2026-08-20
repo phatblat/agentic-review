@@ -35,7 +35,12 @@ func (k *keyedClient) Complete(_ context.Context, _ string, req *infer.Request) 
 	}
 	return &infer.Response{
 		Choices: []infer.Choice{{Message: infer.Message{Role: "assistant", Content: content}}},
-		Usage:   infer.Usage{TotalTokens: 42},
+		Usage: infer.Usage{
+			PromptTokens:        30,
+			PromptTokensDetails: infer.PromptTokensDetails{CachedTokens: 12},
+			CompletionTokens:    12,
+			TotalTokens:         42,
+		},
 	}, nil
 }
 

@@ -1,6 +1,7 @@
 // Package infer is the OpenAI-compatible /v1/chat/completions client:
-// structured output via guided decoding, tool calling with the loop owned
-// by the Go harness, and record/replay for deterministic tests.
+// structured output via response_format json_schema, tool calling with
+// the loop owned by the Go harness, and record/replay for deterministic
+// tests.
 package infer
 
 import "encoding/json"
@@ -56,10 +57,9 @@ type JSONSchemaSpec struct {
 // Seed are pinned by Complete on every call (spec §10.1 determinism
 // decision) — callers do not set them.
 //
-// GuidedJSON is vLLM's native structured-output extra, sent alongside the
-// OpenAI-shaped ResponseFormat in the same body so the same request works
-// against both an OpenAI-compatible gateway and a bare vLLM server; servers
-// ignore fields they don't recognise.
+// ResponseFormat is the sole structured-output field (spec §10.1): the
+// request body is strictly OpenAI-compatible, with no vLLM-specific
+// guided_json extra sent alongside it.
 type Request struct {
 	Model          string          `json:"model"`
 	Messages       []Message       `json:"messages"`
@@ -70,7 +70,6 @@ type Request struct {
 	Tools          []Tool          `json:"tools,omitempty"`
 	ToolChoice     string          `json:"tool_choice,omitempty"`
 	ResponseFormat *ResponseFormat `json:"response_format,omitempty"`
-	GuidedJSON     json.RawMessage `json:"guided_json,omitempty"`
 }
 
 // Response is a /v1/chat/completions response.
@@ -85,9 +84,18 @@ type Choice struct {
 	FinishReason string  `json:"finish_reason"`
 }
 
-// Usage is the token accounting the runtime reads for budget bookkeeping.
+// PromptTokensDetails is the nested prompt-token breakdown Casper (and
+// other OpenAI-compatible servers with prompt caching) report alongside
+// the flat prompt_tokens count.
+type PromptTokensDetails struct {
+	CachedTokens int `json:"cached_tokens"`
+}
+
+// Usage is the token accounting the runtime reads for budget bookkeeping
+// and cache-hit observability (spec §13.3's budget.json usage block).
 type Usage struct {
-	PromptTokens     int `json:"prompt_tokens"`
-	CompletionTokens int `json:"completion_tokens"`
-	TotalTokens      int `json:"total_tokens"`
+	PromptTokens        int                 `json:"prompt_tokens"`
+	PromptTokensDetails PromptTokensDetails `json:"prompt_tokens_details"`
+	CompletionTokens    int                 `json:"completion_tokens"`
+	TotalTokens         int                 `json:"total_tokens"`
 }

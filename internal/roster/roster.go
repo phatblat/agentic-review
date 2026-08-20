@@ -58,13 +58,26 @@ type Roster struct {
 	TotalTokens int       `json:"total_tokens"`
 }
 
+// TokenUsage is budget.json's run-level usage block (spec §13.3):
+// prompt/cached-prompt/completion/total tokens observed by the live
+// infer.Meter across triage, tier-2, and verification. Zero-valued on
+// the replay path, which bypasses the live meter.
+type TokenUsage struct {
+	Prompt       int `json:"prompt"`
+	CachedPrompt int `json:"cached_prompt"`
+	Completion   int `json:"completion"`
+	Total        int `json:"total"`
+}
+
 // Budget is spec §13.3's budget.json: allocated vs. consumed tokens per
-// persona. Owned by roster (not internal/runner, which computes it) so
-// internal/artifact can serialise it without importing runner, which
-// itself already imports both roster and artifact's other domain types.
+// persona, plus the run-level Usage block. Owned by roster (not
+// internal/runner, which computes it) so internal/artifact can
+// serialise it without importing runner, which itself already imports
+// both roster and artifact's other domain types.
 type Budget struct {
 	Allocated map[string]int `json:"allocated"`
 	Consumed  map[string]int `json:"consumed"`
+	Usage     TokenUsage     `json:"usage"`
 }
 
 // candidate is roster.Compute's internal working representation of one
