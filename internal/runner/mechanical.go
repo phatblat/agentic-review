@@ -2,6 +2,7 @@ package runner
 
 import (
 	"context"
+	"fmt"
 	"sort"
 	"strings"
 
@@ -28,13 +29,16 @@ func mechanicalValidate(ctx context.Context, findings []schema.Finding, store *g
 	dropped := make([]schema.Finding, 0)
 
 	for _, f := range findings {
-		if f.Envelope.PersonaKind == string(persona.KindAgent) && !evidenceByteMatches(ctx, f, store, headSHA, baseSHA) {
-			f.Envelope.Verification.Disposition = schema.DispositionDropped
-			f.Envelope.Verification.Verdicts = append(f.Envelope.Verification.Verdicts, schema.EnvelopeVerdict{
-				Lens: "groundedness", Result: "fail", Checked: "mechanical",
-			})
-			dropped = append(dropped, f)
-			continue
+		if f.Envelope.PersonaKind == string(persona.KindAgent) {
+			if reason, ok := evidenceMismatch(ctx, f, store, headSHA, baseSHA); ok {
+				f.Envelope.Verification.Disposition = schema.DispositionDropped
+				f.Envelope.Verification.Verdicts = append(f.Envelope.Verification.Verdicts, schema.EnvelopeVerdict{
+					Lens: "groundedness", Result: "fail", Checked: "mechanical", Reason: reason,
+				})
+				logx.Warn("runner: %s: %s", f.Envelope.Persona, reason)
+				dropped = append(dropped, f)
+				continue
+			}
 		}
 		f = validateAnchor(f, coverage, diffPaths)
 		f = dryRunSuggestedFix(ctx, f, store, headSHA)
@@ -45,31 +49,39 @@ func mechanicalValidate(ctx context.Context, findings []schema.Finding, store *g
 	return append(survivors, dropped...)
 }
 
-// evidenceByteMatches reports whether every evidence entry byte-matches
-// the file content at the appropriate ref (head, or base for a
+// evidenceMismatch reports whether any of f's evidence entries fails to
+// byte-match the file content at the appropriate ref (head, or base for a
 // ref:base/deleted-code anchor), after trailing-whitespace normalisation
-// per line.
-func evidenceByteMatches(ctx context.Context, f schema.Finding, store *gh.ContentStore, headSHA, baseSHA string) bool {
+// per line. When it does, the returned reason names the offending entry:
+// this is the single most common way a model produces a plausible-looking
+// finding about code that does not exist, and the operator reading the
+// filtered-findings section (spec §8.3) needs to know which quote failed,
+// not merely that one did.
+func evidenceMismatch(ctx context.Context, f schema.Finding, store *gh.ContentStore, headSHA, baseSHA string) (string, bool) {
 	ref := headSHA
+	refName := "head"
 	if f.Payload.Anchor.Ref == schema.RefBase {
 		ref = baseSHA
+		refName = "base"
 	}
-	for _, e := range f.Payload.Evidence {
+	for i, e := range f.Payload.Evidence {
 		content, err := store.Get(ctx, e.Path, ref)
 		if err != nil {
-			return false
+			return fmt.Sprintf("evidence[%d] cites %s, unreadable at %s: %v", i, e.Path, refName, err), true
 		}
 		lines := strings.Split(string(content), "\n")
 		if e.StartLine < 1 || e.EndLine < e.StartLine || e.EndLine > len(lines) {
-			return false
+			return fmt.Sprintf("evidence[%d] cites %s:%d-%d, outside the file's %d lines at %s",
+				i, e.Path, e.StartLine, e.EndLine, len(lines), refName), true
 		}
 		want := normalizeTrailingWhitespace(strings.Join(lines[e.StartLine-1:e.EndLine], "\n"))
 		got := normalizeTrailingWhitespace(e.Source)
 		if want != got {
-			return false
+			return fmt.Sprintf("evidence[%d] quote does not match %s:%d-%d at %s",
+				i, e.Path, e.StartLine, e.EndLine, refName), true
 		}
 	}
-	return true
+	return "", false
 }
 
 func normalizeTrailingWhitespace(s string) string {

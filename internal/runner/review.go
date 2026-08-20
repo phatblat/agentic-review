@@ -213,7 +213,7 @@ func Review(ctx context.Context, eventName string, payload []byte, deps ReviewDe
 		Client: deps.Client, Cfg: cfg, Reg: reg, Prompts: prompts, Store: store,
 		HeadSHA: pr.HeadSHA, IsFork: pr.IsFork, Facts: f, RecordDir: deps.RecordDir, ReplayDir: deps.ReplayDir,
 	}
-	findings, verdicts, err := verify.Run(ctx, findings, verifyEnv)
+	findings, _, err = verify.Run(ctx, findings, verifyEnv)
 	if err != nil {
 		return failInfra(ctx, deps, ev, "verification lenses", err, priorHistory)
 	}
@@ -227,7 +227,7 @@ func Review(ctx context.Context, eventName string, payload []byte, deps ReviewDe
 	}
 
 	_ = art.WriteFindingsRaw(findings)
-	_ = art.WriteVerdicts(verdicts)
+	_ = art.WriteVerdicts(envelopeVerdicts(findings))
 	_ = art.WriteFindingsFinal(findings)
 	_ = art.WriteBudget(budget)
 
@@ -452,6 +452,28 @@ func totalConsumed(b *roster.Budget) int {
 		total += n
 	}
 	return total
+}
+
+// envelopeVerdicts flattens the verdicts stamped on every finding into
+// verdicts.json's contents (spec §13.3).
+//
+// The findings' own envelopes are the single source of truth here.
+// verify.Run returns the verdicts its lenses recorded, but that is only
+// part of the run: mechanicalValidate (spec §6.2's evidence, anchor, and
+// suggested_fix checks) stamps verdicts and drops findings before any
+// lens gets a turn, so an artifact built from the lens return alone
+// silently omits every mechanical drop — exactly the findings whose
+// absence from the review most needs explaining. Deriving it from the
+// envelopes also guarantees the artifact agrees with the
+// filtered-findings section rendered from those same envelopes.
+func envelopeVerdicts(findings []schema.Finding) []verify.Verdict {
+	out := make([]verify.Verdict, 0, len(findings))
+	for _, f := range findings {
+		for _, v := range f.Envelope.Verification.Verdicts {
+			out = append(out, verify.Verdict{Lens: v.Lens, Result: v.Result, Checked: v.Checked, Reason: v.Reason})
+		}
+	}
+	return out
 }
 
 // decodeHistory decodes a summary marker's history field (compact JSON
