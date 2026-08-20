@@ -82,25 +82,25 @@ func TestMechanicalValidateEvidenceMismatchDrops(t *testing.T) {
 
 // The filtered-findings section (spec §8.3) renders "lens: reason" from
 // these verdicts, so a mechanical drop with no reason renders as a bare
-// colon and tells the operator nothing about which quote failed.
-func TestMechanicalValidateEvidenceMismatchExplainsWhy(t *testing.T) {
+// colon and tells the operator nothing about why the finding vanished.
+func TestMechanicalValidateUngroundedEvidenceExplainsWhy(t *testing.T) {
 	store := mechTestStore(t, map[string]string{"f.go": "line1\nline2\nline3\n"})
 
 	cases := map[string]struct {
 		finding schema.Finding
 		want    string
 	}{
-		"quote does not match": {
+		"quote appears nowhere in the file": {
 			finding: agentFinding("f.go", 2, 2, "not what is actually there"),
-			want:    "does not match f.go:2-2 at head",
-		},
-		"line range past end of file": {
-			finding: agentFinding("f.go", 40, 41, "line40"),
-			want:    "outside the file's",
+			want:    "does not appear anywhere in f.go at head",
 		},
 		"path not readable": {
 			finding: agentFinding("absent.go", 1, 1, "line1"),
 			want:    "unreadable at head",
+		},
+		"empty quote": {
+			finding: agentFinding("f.go", 2, 2, "   \n\n"),
+			want:    "empty quote",
 		},
 	}
 
@@ -119,6 +119,50 @@ func TestMechanicalValidateEvidenceMismatchExplainsWhy(t *testing.T) {
 			}
 			if !strings.Contains(verdicts[0].Reason, tc.want) {
 				t.Errorf("reason = %q, want it to contain %q", verdicts[0].Reason, tc.want)
+			}
+		})
+	}
+}
+
+// A model that quotes real code but cites the wrong line, or reflows away
+// the indentation, has still produced a checkable finding. Measured on
+// Qwen3.6-35B, that describes every finding in a run — so refusing them
+// turns a review with real findings into a silent all-clear. The quote
+// must exist; the citation gets corrected to where it actually is.
+func TestMechanicalValidateCorrectsMisplacedCitation(t *testing.T) {
+	store := mechTestStore(t, map[string]string{"f.go": "package p\n\nfunc f() {\n\treturn nil\n}\n"})
+
+	cases := map[string]struct {
+		finding            schema.Finding
+		wantStart, wantEnd int
+	}{
+		"cited line is wrong": {
+			finding:   agentFinding("f.go", 2, 2, "\treturn nil"),
+			wantStart: 4, wantEnd: 4,
+		},
+		"indentation stripped by the model": {
+			finding:   agentFinding("f.go", 4, 4, "return nil"),
+			wantStart: 4, wantEnd: 4,
+		},
+		"multi-line quote cited too early": {
+			finding:   agentFinding("f.go", 1, 2, "func f() {\nreturn nil\n}"),
+			wantStart: 3, wantEnd: 5,
+		},
+	}
+
+	for name, tc := range cases {
+		t.Run(name, func(t *testing.T) {
+			out := mechanicalValidate(context.Background(), []schema.Finding{tc.finding}, store, nil, map[string]bool{"f.go": true}, "headsha", "basesha", 50)
+			if len(out) != 1 {
+				t.Fatalf("out = %+v, want one finding", out)
+			}
+			if out[0].Envelope.Verification.Disposition == schema.DispositionDropped {
+				t.Fatalf("finding was dropped; its quote is real code and belongs in the review: %+v",
+					out[0].Envelope.Verification.Verdicts)
+			}
+			got := out[0].Payload.Evidence[0]
+			if got.StartLine != tc.wantStart || got.EndLine != tc.wantEnd {
+				t.Errorf("evidence lines = %d-%d, want %d-%d", got.StartLine, got.EndLine, tc.wantStart, tc.wantEnd)
 			}
 		})
 	}

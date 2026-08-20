@@ -30,7 +30,8 @@ func mechanicalValidate(ctx context.Context, findings []schema.Finding, store *g
 
 	for _, f := range findings {
 		if f.Envelope.PersonaKind == string(persona.KindAgent) {
-			if reason, ok := evidenceMismatch(ctx, f, store, headSHA, baseSHA); ok {
+			grounded, reason, ok := groundEvidence(ctx, f, store, headSHA, baseSHA)
+			if !ok {
 				f.Envelope.Verification.Disposition = schema.DispositionDropped
 				f.Envelope.Verification.Verdicts = append(f.Envelope.Verification.Verdicts, schema.EnvelopeVerdict{
 					Lens: "groundedness", Result: "fail", Checked: "mechanical", Reason: reason,
@@ -39,6 +40,7 @@ func mechanicalValidate(ctx context.Context, findings []schema.Finding, store *g
 				dropped = append(dropped, f)
 				continue
 			}
+			f.Payload.Evidence = grounded
 		}
 		f = validateAnchor(f, coverage, diffPaths)
 		f = dryRunSuggestedFix(ctx, f, store, headSHA)
@@ -49,47 +51,119 @@ func mechanicalValidate(ctx context.Context, findings []schema.Finding, store *g
 	return append(survivors, dropped...)
 }
 
-// evidenceMismatch reports whether any of f's evidence entries fails to
-// byte-match the file content at the appropriate ref (head, or base for a
-// ref:base/deleted-code anchor), after trailing-whitespace normalisation
-// per line. When it does, the returned reason names the offending entry:
-// this is the single most common way a model produces a plausible-looking
-// finding about code that does not exist, and the operator reading the
-// filtered-findings section (spec §8.3) needs to know which quote failed,
-// not merely that one did.
-func evidenceMismatch(ctx context.Context, f schema.Finding, store *gh.ContentStore, headSHA, baseSHA string) (string, bool) {
+// groundEvidence checks every evidence entry against the file content at
+// the appropriate ref (head, or base for a ref:base/deleted-code anchor)
+// and returns the entries with their line numbers corrected to where the
+// quoted text actually is.
+//
+// The invariant worth defending is that the quoted code exists in the
+// file: that is what separates a checkable finding from an invented one.
+// Exact agreement between the quote and the line numbers cited alongside
+// it is a much weaker property, and one models do not reliably deliver.
+// Measured on Qwen3.6-35B, one run produced four substantive findings
+// that all quoted real code with citations off by 3-7 lines and leading
+// indentation stripped; refusing them turned a review with four findings
+// into a silent all-clear, which is the worst possible output. So a quote
+// found elsewhere in the cited file is accepted with its citation
+// corrected, and only a quote that appears nowhere in the file is
+// refused.
+//
+// Comparison normalises leading and trailing whitespace per line:
+// indentation is exactly what a model reflowing a quote loses first, and
+// it carries no evidentiary weight.
+func groundEvidence(ctx context.Context, f schema.Finding, store *gh.ContentStore, headSHA, baseSHA string) ([]schema.Evidence, string, bool) {
 	ref := headSHA
 	refName := "head"
 	if f.Payload.Anchor.Ref == schema.RefBase {
 		ref = baseSHA
 		refName = "base"
 	}
-	for i, e := range f.Payload.Evidence {
+
+	out := make([]schema.Evidence, len(f.Payload.Evidence))
+	copy(out, f.Payload.Evidence)
+	for i := range out {
+		e := &out[i]
 		content, err := store.Get(ctx, e.Path, ref)
 		if err != nil {
-			return fmt.Sprintf("evidence[%d] cites %s, unreadable at %s: %v", i, e.Path, refName, err), true
+			return nil, fmt.Sprintf("evidence[%d] cites %s, unreadable at %s: %v", i, e.Path, refName, err), false
 		}
-		lines := strings.Split(string(content), "\n")
-		if e.StartLine < 1 || e.EndLine < e.StartLine || e.EndLine > len(lines) {
-			return fmt.Sprintf("evidence[%d] cites %s:%d-%d, outside the file's %d lines at %s",
-				i, e.Path, e.StartLine, e.EndLine, len(lines), refName), true
+		quote := normalizeQuote(strings.Split(e.Source, "\n"))
+		if len(quote) == 0 {
+			return nil, fmt.Sprintf("evidence[%d] cites %s:%d-%d with an empty quote", i, e.Path, e.StartLine, e.EndLine), false
 		}
-		want := normalizeTrailingWhitespace(strings.Join(lines[e.StartLine-1:e.EndLine], "\n"))
-		got := normalizeTrailingWhitespace(e.Source)
-		if want != got {
-			return fmt.Sprintf("evidence[%d] quote does not match %s:%d-%d at %s",
-				i, e.Path, e.StartLine, e.EndLine, refName), true
+		file := trimEachLine(strings.Split(string(content), "\n"))
+
+		start, ok := locateQuote(file, quote, e.StartLine)
+		if !ok {
+			return nil, fmt.Sprintf("evidence[%d] quote does not appear anywhere in %s at %s", i, e.Path, refName), false
 		}
+		if start != e.StartLine {
+			logx.Warn("runner: %s: evidence[%d] cited %s:%d-%d but the quote is at %d-%d; correcting",
+				f.Envelope.Persona, i, e.Path, e.StartLine, e.EndLine, start, start+len(quote)-1)
+		}
+		e.StartLine = start
+		e.EndLine = start + len(quote) - 1
 	}
-	return "", false
+	return out, "", true
 }
 
-func normalizeTrailingWhitespace(s string) string {
-	lines := strings.Split(s, "\n")
-	for i, l := range lines {
-		lines[i] = strings.TrimRight(l, " \t\r")
+// locateQuote returns the 1-based line where quote begins in file,
+// preferring citedStart when the quote is already there so a correctly
+// cited entry never moves. Trailing blank lines are ignored on both
+// sides by normalizeLines, so a quote is matched on its content alone.
+func locateQuote(file, quote []string, citedStart int) (int, bool) {
+	if len(quote) > len(file) {
+		return 0, false
 	}
-	return strings.Join(lines, "\n")
+	if citedStart >= 1 && citedStart+len(quote)-1 <= len(file) && windowMatches(file[citedStart-1:], quote) {
+		return citedStart, true
+	}
+	for i := 0; i+len(quote) <= len(file); i++ {
+		if windowMatches(file[i:], quote) {
+			return i + 1, true
+		}
+	}
+	return 0, false
+}
+
+// windowMatches reports whether quote matches the prefix of window.
+// First lines are compared before the rest so a non-match costs one
+// comparison rather than len(quote).
+func windowMatches(window, quote []string) bool {
+	for j := range quote {
+		if window[j] != quote[j] {
+			return false
+		}
+	}
+	return true
+}
+
+// trimEachLine trims surrounding whitespace from every line, leaving the
+// line count untouched so an index into the result is still a line
+// number. Indentation is the first thing a model loses when it reflows a
+// quote, and it carries no evidentiary weight.
+func trimEachLine(lines []string) []string {
+	out := make([]string, len(lines))
+	for i, l := range lines {
+		out[i] = strings.TrimSpace(l)
+	}
+	return out
+}
+
+// normalizeQuote trims each line and drops surrounding blank lines, so a
+// quote is compared on its content rather than on the padding around it.
+// Unlike trimEachLine this changes the line count, which is why it is
+// only ever applied to the quote and never to the file it is matched
+// against.
+func normalizeQuote(lines []string) []string {
+	out := trimEachLine(lines)
+	for len(out) > 0 && out[0] == "" {
+		out = out[1:]
+	}
+	for len(out) > 0 && out[len(out)-1] == "" {
+		out = out[:len(out)-1]
+	}
+	return out
 }
 
 // validateAnchor demotes a line anchor whose lines are not all covered by
