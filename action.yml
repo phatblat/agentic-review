@@ -27,8 +27,8 @@ inputs:
     default: ""
   record:
     description: >-
-      When "true", record every model request/response pair under
-      ${{ runner.temp }}/agentic-review/recordings (spec §13.3; no
+      When "true", record every model request/response pair under the
+      runner's temp directory (agentic-review/recordings; spec §13.3; no
       redaction — do not enable on a private repo without cleaning the
       output before reuse as a fixture).
     required: false
