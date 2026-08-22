@@ -44,15 +44,51 @@ subset, and set-valued fields are normalized in the decoder instead (see
 `schema.DecodeAssessment`). Adding a schema keyword is a live-endpoint change:
 verify it with `just live-smoke` before relying on it.
 
-### Budgets are model-dependent
+### Reasoning models and budgets
 
-Every persona's `budget.max_tokens` becomes the request's `max_tokens`, so a
-verbose or reasoning-heavy model can exhaust a budget that a terser one fits
-inside. Exhaustion is reported as truncation naming the persona and its
-budget, and the retry asks for a terser answer at the same ceiling — that
-recovers most cases, but a persona that truncates on every attempt needs its
-budget raised. Measured on `nvidia/Qwen3.6-35B-A3B-NVFP4`: triage spends
-1000–1900 completion tokens on real PRs, against the builtin's 6000.
+Every persona's `budget.max_tokens` becomes the request's `max_tokens`, and
+**reasoning tokens are billed as completion tokens**, so a reasoning model
+spends the persona's budget thinking before its answer starts. This is the
+single most consequential deployment setting.
+
+Measured on `nvidia/Qwen3.6-35B-A3B-NVFP4`, where `Reply with exactly: OK`
+costs 100 completion tokens by default and 2 with reasoning off, reviewing the
+same PR:
+
+| | reasoning on | reasoning off |
+|---|---|---|
+| wall time | 9m 20s | 3m 04s |
+| total tokens | 120,402 | 52,976 |
+| completion tokens | 44,745 | 13,182 |
+| tier-2 outcome | truncated on every attempt | completed |
+
+Set it per capability class:
+
+```yaml
+models:
+  review:
+    model: <model-name>
+    reasoning_effort: none      # passed through as OpenAI's reasoning_effort
+```
+
+Omitting it leaves the server's own default in force. Raising budgets is
+**not** the alternative fix: at `max_tokens: 24000` a single tier-2 turn on
+this hardware exceeded `internal/infer`'s 300s request timeout, so the failure
+moves rather than disappearing.
+
+Truncation that still happens is reported as truncation, naming the persona
+and its budget, and the retry asks for a terser answer at the same ceiling.
+That recovers most cases; a persona truncating on every attempt genuinely
+needs a larger budget.
+
+### Evidence quoting
+
+A finding survives mechanical validation when its quoted evidence exists in
+the cited file — the citation's line numbers are corrected when the quote
+turns up elsewhere, and only a quote that appears nowhere is refused. Expect
+`::warning::` lines recording corrected citations; they are normal, not a
+misconfiguration. A model whose findings are refused for evidence that appears
+nowhere is fabricating, which is a model-quality problem no setting fixes.
 
 ## 2. Runner
 

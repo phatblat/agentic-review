@@ -244,8 +244,9 @@ func judgeIntent(ctx context.Context, in ConfigGuardInput, diffText string) ([]s
 	)
 
 	req := &infer.Request{
-		Model:     binding.Model,
-		MaxTokens: in.MaxTokens,
+		Model:           binding.Model,
+		MaxTokens:       in.MaxTokens,
+		ReasoningEffort: binding.ReasoningEffort,
 		Messages: []infer.Message{
 			{Role: "system", Content: in.SystemPrompt},
 			{Role: "user", Content: userContent},

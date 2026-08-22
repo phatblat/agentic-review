@@ -13,16 +13,26 @@
 # the only kind that input fills; it never overrides a value set here.
 version: 1
 
+# reasoning_effort: none is load-bearing on this deployment, not a
+# preference. Qwen3.6-35B reasons by default and bills reasoning as
+# completion tokens, so every persona budget was being spent thinking
+# before the answer started: "Reply with exactly: OK" cost 100 completion
+# tokens, triage spent 1875 on a trivial assessment, and logic truncated
+# at 12000 three attempts running. Raising budgets instead just moves the
+# failure to the client's 300s request timeout.
 models:
   triage:
     endpoint: ""
     model: nvidia/Qwen3.6-35B-A3B-NVFP4
     context_window: 131072
+    reasoning_effort: none
   review:
     endpoint: ""
     model: nvidia/Qwen3.6-35B-A3B-NVFP4
     context_window: 131072
+    reasoning_effort: none
   verify:
     endpoint: ""
     model: nvidia/Qwen3.6-35B-A3B-NVFP4
     context_window: 131072
+    reasoning_effort: none

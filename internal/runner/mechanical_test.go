@@ -4,6 +4,7 @@ import (
 	"context"
 	"os"
 	"path/filepath"
+	"strings"
 	"testing"
 
 	"github.com/phatblat/agentic-review/internal/diffscan"
@@ -76,6 +77,116 @@ func TestMechanicalValidateEvidenceMismatchDrops(t *testing.T) {
 	}
 	if !found {
 		t.Errorf("verdicts = %+v, want a failed groundedness verdict", out[0].Envelope.Verification.Verdicts)
+	}
+}
+
+// The filtered-findings section (spec §8.3) renders "lens: reason" from
+// these verdicts, so a mechanical drop with no reason renders as a bare
+// colon and tells the operator nothing about why the finding vanished.
+func TestMechanicalValidateUngroundedEvidenceExplainsWhy(t *testing.T) {
+	store := mechTestStore(t, map[string]string{"f.go": "line1\nline2\nline3\n"})
+
+	cases := map[string]struct {
+		finding schema.Finding
+		want    string
+	}{
+		"quote appears nowhere in the file": {
+			finding: agentFinding("f.go", 2, 2, "not what is actually there"),
+			want:    "does not appear anywhere in f.go at head",
+		},
+		"path not readable": {
+			finding: agentFinding("absent.go", 1, 1, "line1"),
+			want:    "unreadable at head",
+		},
+		"empty quote": {
+			finding: agentFinding("f.go", 2, 2, "   \n\n"),
+			want:    "empty quote",
+		},
+	}
+
+	for name, tc := range cases {
+		t.Run(name, func(t *testing.T) {
+			out := mechanicalValidate(context.Background(), []schema.Finding{tc.finding}, store, nil, map[string]bool{"f.go": true}, "headsha", "basesha", 50)
+			if len(out) != 1 || out[0].Envelope.Verification.Disposition != schema.DispositionDropped {
+				t.Fatalf("out = %+v, want one dropped finding", out)
+			}
+			verdicts := out[0].Envelope.Verification.Verdicts
+			if len(verdicts) != 1 {
+				t.Fatalf("verdicts = %+v, want exactly one", verdicts)
+			}
+			if verdicts[0].Reason == "" {
+				t.Fatal("verdict reason is empty; the filtered-findings section would render a bare \"groundedness: \"")
+			}
+			if !strings.Contains(verdicts[0].Reason, tc.want) {
+				t.Errorf("reason = %q, want it to contain %q", verdicts[0].Reason, tc.want)
+			}
+		})
+	}
+}
+
+// A model that quotes real code but cites the wrong line, or reflows away
+// the indentation, has still produced a checkable finding. Measured on
+// Qwen3.6-35B, that describes every finding in a run — so refusing them
+// turns a review with real findings into a silent all-clear. The quote
+// must exist; the citation gets corrected to where it actually is.
+func TestMechanicalValidateCorrectsMisplacedCitation(t *testing.T) {
+	store := mechTestStore(t, map[string]string{"f.go": "package p\n\nfunc f() {\n\treturn nil\n}\n"})
+
+	cases := map[string]struct {
+		finding            schema.Finding
+		wantStart, wantEnd int
+	}{
+		"cited line is wrong": {
+			finding:   agentFinding("f.go", 2, 2, "\treturn nil"),
+			wantStart: 4, wantEnd: 4,
+		},
+		"indentation stripped by the model": {
+			finding:   agentFinding("f.go", 4, 4, "return nil"),
+			wantStart: 4, wantEnd: 4,
+		},
+		"multi-line quote cited too early": {
+			finding:   agentFinding("f.go", 1, 2, "func f() {\nreturn nil\n}"),
+			wantStart: 3, wantEnd: 5,
+		},
+	}
+
+	for name, tc := range cases {
+		t.Run(name, func(t *testing.T) {
+			out := mechanicalValidate(context.Background(), []schema.Finding{tc.finding}, store, nil, map[string]bool{"f.go": true}, "headsha", "basesha", 50)
+			if len(out) != 1 {
+				t.Fatalf("out = %+v, want one finding", out)
+			}
+			if out[0].Envelope.Verification.Disposition == schema.DispositionDropped {
+				t.Fatalf("finding was dropped; its quote is real code and belongs in the review: %+v",
+					out[0].Envelope.Verification.Verdicts)
+			}
+			got := out[0].Payload.Evidence[0]
+			if got.StartLine != tc.wantStart || got.EndLine != tc.wantEnd {
+				t.Errorf("evidence lines = %d-%d, want %d-%d", got.StartLine, got.EndLine, tc.wantStart, tc.wantEnd)
+			}
+		})
+	}
+}
+
+// verdicts.json is the audit trail for findings that never reach the
+// review, and mechanical drops never pass through a lens — so building it
+// from verify.Run's return alone loses exactly the verdicts that explain
+// a missing finding.
+func TestEnvelopeVerdictsIncludesMechanicalDrops(t *testing.T) {
+	store := mechTestStore(t, map[string]string{"f.go": "line1\nline2\nline3\n"})
+	out := mechanicalValidate(context.Background(),
+		[]schema.Finding{agentFinding("f.go", 2, 2, "fabricated quote"), agentFinding("f.go", 2, 2, "line2")},
+		store, nil, map[string]bool{"f.go": true}, "headsha", "basesha", 50)
+
+	verdicts := envelopeVerdicts(out)
+	if len(verdicts) != 1 {
+		t.Fatalf("verdicts = %+v, want the one mechanical drop (the matching finding carries none)", verdicts)
+	}
+	if verdicts[0].Lens != "groundedness" || verdicts[0].Result != "fail" || verdicts[0].Checked != "mechanical" {
+		t.Errorf("verdict = %+v, want a failed mechanical groundedness verdict", verdicts[0])
+	}
+	if verdicts[0].Reason == "" {
+		t.Error("verdict reason is empty in verdicts.json")
 	}
 }
 

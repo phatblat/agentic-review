@@ -55,6 +55,20 @@ type ModelBinding struct {
 	Model         string `yaml:"model"`
 	ContextWindow int    `yaml:"context_window"` // optional; 0 = unknown
 	APIKeyEnv     string `yaml:"api_key_env"`    // default "AGENTIC_REVIEW_API_KEY"
+	// ReasoningEffort is sent as the request's OpenAI-standard
+	// reasoning_effort field, and omitted entirely when empty (the
+	// server's own default applies).
+	//
+	// It exists because a reasoning model spends its completion budget
+	// thinking: reasoning tokens count against max_tokens, so a persona
+	// budget sized for its answer truncates on the thinking that precedes
+	// it. Measured on Qwen3.6-35B, "Reply with exactly: OK" costs 100
+	// completion tokens by default and 2 with reasoning off.
+	//
+	// Values are passed through as given ("none", "low", "medium",
+	// "high"); a server that rejects the value fails the request loudly
+	// rather than silently ignoring the setting.
+	ReasoningEffort string `yaml:"reasoning_effort"`
 }
 
 // Budget is config's own lower-only override of a persona's token/tool-call
