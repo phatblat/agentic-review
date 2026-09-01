@@ -111,6 +111,8 @@ just build        # go build -o agentic-review ./cmd/agentic-review
 just test          # go test ./...
 just test-update    # go test ./internal/classes ./internal/roster ./internal/runner -update
                      # (only these 3 packages import internal/goldentest)
+just format        # golangci-lint fmt + golangci-lint run --fix — auto-fix
+                     # what `just lint` reports; not a gate
 just lint          # gofmt -l check + go vet ./... + golangci-lint run (no auto-fix)
 just check         # lint + test — what CI runs
 just validate       # go run ./cmd/agentic-review validate — loads every builtin +
@@ -205,7 +207,8 @@ in-flight binary via `uses: ./`. `release.yml` publishes cross-compiled binaries
   invocations so behavior matches CI.
 - **`golangci-lint` v2** with an explicit allowlist (`linters.default: none`, then
   `enable:` errcheck, govet, ineffassign, staticcheck, unused, bodyclose, errorlint,
-  misspell). `gofmt`/`goimports` are formatters, not auto-applied by `just lint`.
+  misspell). `gofmt`/`goimports` are formatters: not auto-applied by `just lint`,
+  applied by `just format`.
 - Notable direct dependencies and their purpose: `google/cel-go` (persona activation
   CEL rules), `google/go-github/v75` (GitHub API), `goccy/go-yaml` +
   `pelletier/go-toml/v2` (config/persona parsing), `santhosh-tekuri/jsonschema/v6`

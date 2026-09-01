@@ -25,6 +25,18 @@ test:
 test-update:
     go test ./internal/classes ./internal/roster ./internal/runner -update
 
+# `golangci-lint fmt` (gofmt + goimports from .golangci.yml) runs first
+# because it still formats a tree that does not type-check, whereas
+# `golangci-lint run` bails on typecheck errors before fixing anything.
+# `run --fix` then applies the autofixable linters. --issues-exit-code=0
+# keeps residual non-autofixable findings (unused, most staticcheck)
+# informational; tool/config failures still exit 3. `go vet` has no
+# auto-fix, so nothing mirrors it here.
+# Auto-fix everything `just lint` reports that can be fixed.
+format:
+    golangci-lint fmt
+    golangci-lint run --fix --issues-exit-code=0
+
 # gofmt, go vet, and golangci-lint; no formatting or auto-fixing.
 lint:
     @test -z "$(gofmt -l .)" || (gofmt -l . && exit 1)
