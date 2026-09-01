@@ -3,6 +3,13 @@ set shell := ["bash", "-euo", "pipefail", "-c"]
 @_default:
     just --list
 
+# Install pinned toolchain (go, node, just, golangci-lint via mise) and
+# download Go module dependencies. Run this once per clone/CI runner
+# before build/test/lint.
+deps:
+    mise install
+    go mod download
+
 # Build the agentic-review binary.
 build:
     go build -o agentic-review ./cmd/agentic-review
