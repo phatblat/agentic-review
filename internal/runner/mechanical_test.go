@@ -86,6 +86,48 @@ func TestMechanicalValidateChecksEvidenceOfModelAuthoredDeterministicFindings(t 
 	}
 }
 
+// A deleted persona file is exactly where config-guard's model quotes base
+// content. With anchor.ref: base (which the config-guard prompt asks for)
+// the quote is grounded against base and the finding survives; without it
+// the quote is looked up at head, where the file is gone, and the finding
+// is dropped.
+func TestMechanicalValidateModelAuthoredBaseSideEvidenceOfDeletedFile(t *testing.T) {
+	dir := t.TempDir()
+	mustWrite(t, filepath.Join(dir, "pr.json"), `{"number":1,"head_sha":"headsha","base_sha":"basesha"}`)
+	mustWrite(t, filepath.Join(dir, "base", "p.yaml"), "id: security\nrequired_when: x\n")
+	fake, err := gh.LoadFake(dir)
+	if err != nil {
+		t.Fatalf("LoadFake: %v", err)
+	}
+	store := gh.NewContentStore(fake, gh.Repo{Owner: "acme", Name: "demo"})
+
+	judged := func(id string, ref schema.AnchorRef) schema.Finding {
+		return schema.Finding{
+			Payload: schema.Payload{
+				Category: "config", Severity: "warning", Title: "t", Claim: "c",
+				Anchor:   schema.Anchor{Kind: schema.AnchorFile, Path: "p.yaml", Ref: ref},
+				Evidence: []schema.Evidence{{Path: "p.yaml", StartLine: 2, EndLine: 2, Source: "required_when: x"}},
+			},
+			Envelope: schema.Envelope{ID: id, PersonaKind: string(persona.KindDeterministic), ModelAuthored: true},
+		}
+	}
+
+	out := mechanicalValidate(context.Background(),
+		[]schema.Finding{judged("base-ref", schema.RefBase), judged("default-ref", "")},
+		store, nil, map[string]bool{"p.yaml": true}, "headsha", "basesha", 50)
+
+	got := map[string]schema.Disposition{}
+	for _, f := range out {
+		got[f.Envelope.ID] = f.Envelope.Verification.Disposition
+	}
+	if got["base-ref"] == schema.DispositionDropped {
+		t.Errorf("base-ref finding dropped, want it grounded against base content")
+	}
+	if got["default-ref"] != schema.DispositionDropped {
+		t.Errorf("default-ref disposition = %q, want dropped: the file does not exist at head", got["default-ref"])
+	}
+}
+
 func TestMechanicalValidateEvidenceMismatchDrops(t *testing.T) {
 	store := mechTestStore(t, map[string]string{"f.go": "line1\nline2\nline3\n"})
 	f := agentFinding("f.go", 2, 2, "not what is actually there")

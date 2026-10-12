@@ -31,3 +31,11 @@ itself suspicious. Judge intent, not the mere presence of a config change.
 `category` is `config`; `severity` should rarely exceed `warning` unless
 you have concrete evidence of deliberate weakening — the deterministic
 pass already owns `blocker`-level certainty.
+
+Every finding needs `evidence`: a verbatim quote, with its file and line
+numbers, taken from the diff you were given. Evidence is checked against one
+side of the change. By default that is the head (new) content; set
+`anchor.ref` to `base` when your evidence quotes content the PR removed or
+changed, or comes from a file the PR deleted, and quote it from the `(base)`
+section. A quote that does not appear in the file on that side is discarded
+along with the finding.
