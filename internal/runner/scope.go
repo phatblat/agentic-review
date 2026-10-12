@@ -179,3 +179,29 @@ func renderContextBlock(ctx context.Context, block string, pr PRContext, store *
 		return "", fmt.Errorf("unknown inputs.context block %q", block)
 	}
 }
+
+// personaIDsBlock renders the trusted list of persona ids a model may name
+// in field (triage's suggested_personas, or an agent's escalate). The
+// schemas type both as free strings and the prompts never listed the
+// registry, so models invented ids like "security-reviewer" that roster
+// then denied as not in registry. An empty ids slice says so explicitly,
+// rather than leaving the model to guess.
+func personaIDsBlock(field string, ids []string) string {
+	if len(ids) == 0 {
+		return fmt.Sprintf("Valid persona ids for `%s` (runtime-assembled; trusted): none. Leave `%s` empty.", field, field)
+	}
+	return fmt.Sprintf("Valid persona ids for `%s` (runtime-assembled; trusted): %s. Use only these ids, exactly as written; leave `%s` empty if no other persona is needed.",
+		field, strings.Join(ids, ", "), field)
+}
+
+// otherPersonaIDs returns ids without self: a persona escalating to itself
+// is already in the team, so tryEscalate would silently ignore it.
+func otherPersonaIDs(ids []string, self string) []string {
+	out := make([]string, 0, len(ids))
+	for _, id := range ids {
+		if id != self {
+			out = append(out, id)
+		}
+	}
+	return out
+}

@@ -1,6 +1,7 @@
 package roster
 
 import (
+	"slices"
 	"testing"
 
 	"github.com/phatblat/agentic-review/internal/activation"
@@ -369,6 +370,22 @@ func TestComputeBudgetNonForkProceedsOverBudget(t *testing.T) {
 	}
 	if len(r.Members) != 2 {
 		t.Errorf("Members = %+v, want both required members kept", r.Members)
+	}
+}
+
+// TeamPersonaIDs feeds the "valid persona ids" list models are shown, so it
+// must be sorted (stable prompts, stable replay keys) and must not offer
+// the triage persona, which escalation can never add to a team.
+func TestTeamPersonaIDsSortedAndExcludesTriage(t *testing.T) {
+	defs := []persona.Definition{
+		agentDef("zeta", 0, 1000, persona.Activation{}),
+		agentDef("alpha", 0, 1000, persona.Activation{}),
+	}
+	reg := mustResolve(t, defs, testCfg(0, 5))
+
+	got := TeamPersonaIDs(reg)
+	if want := []string{"alpha", "zeta"}; !slices.Equal(got, want) {
+		t.Errorf("TeamPersonaIDs = %v, want %v", got, want)
 	}
 }
 

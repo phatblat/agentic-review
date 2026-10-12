@@ -15,6 +15,7 @@ import (
 	"github.com/phatblat/agentic-review/internal/infer"
 	"github.com/phatblat/agentic-review/internal/logx"
 	"github.com/phatblat/agentic-review/internal/persona"
+	"github.com/phatblat/agentic-review/internal/roster"
 	"github.com/phatblat/agentic-review/internal/schema"
 )
 
@@ -64,7 +65,7 @@ func RunTriage(ctx context.Context, cl infer.Client, reg persona.Registry, promp
 
 	messages := []infer.Message{
 		{Role: "system", Content: rp.SystemPrompt(prompts)},
-		{Role: "user", Content: buildTriageUserContent(factsJSON, in)},
+		{Role: "user", Content: buildTriageUserContent(factsJSON, in, roster.TeamPersonaIDs(reg))},
 	}
 
 	for attempt := 0; attempt <= maxTriageRetries; attempt++ {
@@ -137,10 +138,12 @@ func findTriagePersona(reg persona.Registry) (*persona.ResolvedPersona, error) {
 	return found, nil
 }
 
-func buildTriageUserContent(factsJSON []byte, in TriageInput) string {
+func buildTriageUserContent(factsJSON []byte, in TriageInput, personaIDs []string) string {
 	var b strings.Builder
 	b.WriteString("Facts (runtime-assembled; trusted):\n")
 	b.Write(factsJSON)
+	b.WriteString("\n\n")
+	b.WriteString(personaIDsBlock("suggested_personas", personaIDs))
 	b.WriteString("\n\n")
 	b.WriteString(infer.WrapUntrusted("pr-title", in.Title))
 	b.WriteString("\n\n")
