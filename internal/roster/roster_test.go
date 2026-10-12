@@ -404,3 +404,38 @@ func equalStrings(a, b []string) bool {
 func idFor(i int) string {
 	return string(rune('a' + i))
 }
+
+// A team of only config-guard still runs every lens on its model-authored
+// findings (spec §7), so the plan output must not report an empty verifier
+// list. A deterministic persona with no model binding emits only code-computed
+// facts and contributes none.
+func TestComputeVerifierLensesCountsModelBackedDeterministicPersona(t *testing.T) {
+	det := func(id string, model *persona.Model) persona.Definition {
+		return persona.Definition{
+			ID: id, Kind: persona.KindDeterministic, Summary: "x",
+			Activation: persona.Activation{Always: true},
+			Runtime:    &persona.Runtime{Handler: "builtin/config-guard"},
+			Model:      model,
+			Budget:     persona.Budget{MaxTokens: 10},
+		}
+	}
+	cases := map[string]struct {
+		model *persona.Model
+		want  []string
+	}{
+		"model-backed": {&persona.Model{Capability: "review"}, []string{"duplication", "groundedness", "injection", "materiality"}},
+		"model-less":   {nil, []string{}},
+	}
+	for name, tc := range cases {
+		t.Run(name, func(t *testing.T) {
+			reg := mustResolve(t, []persona.Definition{det("config-guard", tc.model)}, testCfg(0, 5))
+			r, err := Compute(reg, &facts.Facts{}, nil, testCfg(0, 5))
+			if err != nil {
+				t.Fatalf("Compute: %v", err)
+			}
+			if !equalStrings(r.Verifiers, tc.want) {
+				t.Errorf("Verifiers = %v, want %v", r.Verifiers, tc.want)
+			}
+		})
+	}
+}
