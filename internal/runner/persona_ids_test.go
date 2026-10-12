@@ -48,9 +48,25 @@ func TestPersonaIDsBlockNamesFieldAndIDs(t *testing.T) {
 // rendering an empty list the model could read as "anything goes".
 func TestPersonaIDsBlockEmptyListSaysNone(t *testing.T) {
 	got := personaIDsBlock("escalate", nil)
-	if !strings.Contains(got, "none") || strings.Contains(got, "trusted):  ") {
-		t.Errorf("block = %q, want an explicit \"none\"", got)
+	want := "Valid persona ids for `escalate` (runtime-assembled; trusted): none. Leave `escalate` empty."
+	if got != want {
+		t.Errorf("block = %q, want %q", got, want)
 	}
+}
+
+// idsLine returns the single "Valid persona ids for `field`" line of a
+// user message, so assertions are scoped to it rather than to the facts
+// and diff text around it.
+func idsLine(t *testing.T, user, field string) string {
+	t.Helper()
+	prefix := "Valid persona ids for `" + field + "`"
+	for _, line := range strings.Split(user, "\n") {
+		if strings.HasPrefix(line, prefix) {
+			return line
+		}
+	}
+	t.Fatalf("user message has no %q line: %q", prefix, user)
+	return ""
 }
 
 func TestTriageUserMessageListsTeamPersonasOnly(t *testing.T) {
@@ -112,11 +128,74 @@ func TestAgentUserMessageListsOtherTeamPersonas(t *testing.T) {
 		"model-b": "trusted): alpha, gamma.",
 		"model-g": "trusted): alpha, beta.",
 	} {
-		if got := cl.users[model]; !strings.Contains(got, want) {
-			t.Errorf("%s user message = %q, want it to contain %q", model, got, want)
+		line := idsLine(t, cl.users[model], "escalate")
+		if !strings.Contains(line, want) {
+			t.Errorf("%s ids line = %q, want it to contain %q", model, line, want)
 		}
-		if strings.Contains(cl.users[model], "triage") {
-			t.Errorf("%s user message offers the triage persona, which escalation can never add", model)
+		if strings.Contains(line, "triage") {
+			t.Errorf("%s ids line offers the triage persona, which escalation can never add: %q", model, line)
 		}
+	}
+}
+
+// An escalated (wave 2) agent is shown the list too. Each agent is offered
+// the other, never itself; scout stays offered to specialist because
+// tryEscalate ignores ids already on the team.
+func TestWave2AgentUserMessageListsOtherTeamPersonas(t *testing.T) {
+	defs := []persona.Definition{
+		agentDef("scout", "cap-scout", 1000),
+		agentDef("specialist", "cap-specialist", 1000),
+	}
+	defs[1].Activation = persona.Activation{} // only reachable via escalation
+	cfg := teamTestCfg(map[string]string{"cap-scout": "model-scout", "cap-specialist": "model-specialist"})
+	reg := resolveTeam(t, defs, cfg)
+	rst, err := roster.Compute(reg, &facts.Facts{}, nil, cfg)
+	if err != nil {
+		t.Fatalf("roster.Compute: %v", err)
+	}
+
+	cl := &userCapture{keyedClient: keyedClient{responses: map[string]string{
+		"model-scout":      findingsJSON("scout finding", "specialist"),
+		"model-specialist": findingsJSON("specialist finding"),
+	}}}
+	store, headSHA := teamTestStore(t)
+	deps := TeamDeps{Client: cl, Cfg: cfg, Facts: &facts.Facts{}, Prompts: map[string]string{}, Store: store, HeadSHA: headSHA}
+	if _, _, err := RunTeam(context.Background(), deps, reg, rst); err != nil {
+		t.Fatalf("RunTeam: %v", err)
+	}
+
+	if _, ok := cl.users["model-specialist"]; !ok {
+		t.Fatal("specialist never ran; wave 2 was not exercised")
+	}
+	for model, want := range map[string]string{
+		"model-scout":      "trusted): specialist.",
+		"model-specialist": "trusted): scout.",
+	} {
+		if line := idsLine(t, cl.users[model], "escalate"); !strings.Contains(line, want) {
+			t.Errorf("%s ids line = %q, want it to contain %q", model, line, want)
+		}
+	}
+}
+
+// A lone agent has no other persona to name; runAgent must render the
+// explicit "none" line, not an empty list.
+func TestLoneAgentUserMessageSaysNone(t *testing.T) {
+	cfg := teamTestCfg(map[string]string{"cap-solo": "model-solo"})
+	reg := resolveTeam(t, []persona.Definition{agentDef("solo", "cap-solo", 1000)}, cfg)
+	rst, err := roster.Compute(reg, &facts.Facts{}, nil, cfg)
+	if err != nil {
+		t.Fatalf("roster.Compute: %v", err)
+	}
+
+	cl := &userCapture{keyedClient: keyedClient{responses: map[string]string{"model-solo": findingsJSON("s")}}}
+	store, headSHA := teamTestStore(t)
+	deps := TeamDeps{Client: cl, Cfg: cfg, Facts: &facts.Facts{}, Prompts: map[string]string{}, Store: store, HeadSHA: headSHA}
+	if _, _, err := RunTeam(context.Background(), deps, reg, rst); err != nil {
+		t.Fatalf("RunTeam: %v", err)
+	}
+
+	want := "Valid persona ids for `escalate` (runtime-assembled; trusted): none. Leave `escalate` empty."
+	if got := idsLine(t, cl.users["model-solo"], "escalate"); got != want {
+		t.Errorf("ids line = %q, want %q", got, want)
 	}
 }
