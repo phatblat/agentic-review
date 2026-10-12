@@ -39,6 +39,15 @@ func allowedURLHost(host string) bool {
 // mechanical screen still goes to the verify capability, which judges
 // manipulation intent in subtler content. Fail (either stage) drops the
 // finding — its content is never re-rendered (spec §8.3).
+//
+// A code-computed finding from a persona that opted out of verification
+// (config-guard's and dep-risk's facts) skips the model stage, but its text
+// interpolates values the maintainers do not control (a docs_globs entry
+// from the PR-head config, an OSV advisory summary, a package name), and it
+// is posted verbatim. It still runs the mechanical screen, free of model
+// calls. On a hit it is sanitized, not dropped: dropping would let an
+// attacker suppress a certain blocker by adding text that trips the screen,
+// reopening spec §12.4(4).
 type Injection struct{}
 
 func (Injection) Name() string { return "injection" }
@@ -48,11 +57,11 @@ func (Injection) Apply(ctx context.Context, in []schema.Finding, env Env) ([]sch
 	copy(out, in)
 
 	idx := verifiable(in, env.Reg)
+	verdicts := sanitizeExempt(in, out, idx)
 	if len(idx) == 0 {
-		return out, nil, nil
+		return out, verdicts, nil
 	}
 
-	var verdicts []Verdict
 	var modelIdx []int
 	for _, j := range idx {
 		f := in[j]
@@ -98,6 +107,68 @@ func (Injection) Apply(ctx context.Context, in []schema.Finding, env Env) ([]sch
 		verdicts = append(verdicts, v)
 	}
 	return out, verdicts, nil
+}
+
+// sanitizeExempt runs the mechanical screen over the accepted findings that
+// are not in judgedIdx (the code-computed facts of personas that opted out
+// of verification) and redacts what it flags, in out. A sanitized finding
+// stays accepted and gets a fail verdict recording why its text changed.
+func sanitizeExempt(in, out []schema.Finding, judgedIdx []int) []Verdict {
+	judged := make(map[int]bool, len(judgedIdx))
+	for _, j := range judgedIdx {
+		judged[j] = true
+	}
+	var verdicts []Verdict
+	for _, j := range accepted(in) {
+		if judged[j] {
+			continue
+		}
+		reason, hit := mechanicalInjectionScreen(in[j].Payload)
+		if !hit {
+			continue
+		}
+		out[j].Payload = redactPayload(in[j].Payload)
+		reason += "; text redacted, finding kept (code-computed fact)"
+		v := Verdict{Lens: "injection", Result: "fail", Checked: "mechanical", Reason: reason}
+		out[j].Envelope.Verification.Verdicts = append(out[j].Envelope.Verification.Verdicts, schema.EnvelopeVerdict{
+			Lens: v.Lens, Result: v.Result, Checked: v.Checked, Reason: v.Reason,
+		})
+		logx.Warn("verify: injection: %s: %s", in[j].Envelope.ID, reason)
+		verdicts = append(verdicts, v)
+	}
+	return verdicts
+}
+
+// redactPayload returns p with title, claim, and suggested_fix.replacement
+// scrubbed of everything mechanicalInjectionScreen flags. A field that still
+// trips the screen afterwards is withheld entirely, so the result always
+// clears it. p's SuggestedFix is copied, never edited in place.
+func redactPayload(p schema.Payload) schema.Payload {
+	p.Title = redactText(p.Title)
+	p.Claim = redactText(p.Claim)
+	if p.SuggestedFix != nil {
+		fix := *p.SuggestedFix
+		fix.Replacement = redactText(fix.Replacement)
+		p.SuggestedFix = &fix
+	}
+	return p
+}
+
+const redacted = "[redacted]"
+
+func redactText(s string) string {
+	s = urlRE.ReplaceAllStringFunc(s, func(raw string) string {
+		if u, err := url.Parse(raw); err != nil || !allowedURLHost(u.Hostname()) {
+			return redacted
+		}
+		return raw
+	})
+	s = longEncodedRunRE.ReplaceAllString(s, redacted)
+	s = injectionPatterns.ReplaceAllString(s, redacted)
+	if _, hit := mechanicalInjectionScreen(schema.Payload{Title: s}); hit {
+		return "[withheld: failed injection screen]"
+	}
+	return s
 }
 
 // mechanicalInjectionScreen checks title, claim, and suggested_fix.replacement

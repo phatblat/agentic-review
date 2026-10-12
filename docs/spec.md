@@ -383,6 +383,10 @@ Lens semantics are fixed by this spec, not config:
   authored under a deterministic persona (config-guard's intent-judgment pass) is
   marked `envelope.model_authored`, gets the evidence byte-match, and passes every
   lens, including the fork-mandatory `injection` lens.
+  Exempt facts still run `injection`'s mechanical screen (no model call), because
+  their text interpolates PR-head values (config entries, advisory summaries,
+  package names): on a hit the flagged text is redacted and the finding is kept,
+  never dropped, so the §12.4(4) gate rule cannot be suppressed by hostile text.
 - `verification.lenses` is validated at load time but not yet consulted at run
   time: every verifiable finding passes all four lenses in the fixed order
   above, whatever its persona lists. Treat the field as documentation until a
