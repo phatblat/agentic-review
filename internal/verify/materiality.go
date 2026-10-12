@@ -24,7 +24,7 @@ func (Materiality) Apply(ctx context.Context, in []schema.Finding, env Env) ([]s
 	out := make([]schema.Finding, len(in))
 	copy(out, in)
 
-	idx := acceptedOnly(in)
+	idx := verifiable(in, env.Reg)
 	if len(idx) == 0 {
 		return out, nil, nil
 	}

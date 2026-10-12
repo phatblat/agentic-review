@@ -88,14 +88,28 @@ func Run(ctx context.Context, findings []schema.Finding, env Env) ([]schema.Find
 	return current, all, nil
 }
 
-// acceptedOnly returns the indices of in whose disposition is still
-// accepted — the only findings worth spending a lens's tokens on.
-func acceptedOnly(in []schema.Finding) []int {
+// verifiable returns the indices of in that a lens should judge: findings
+// still accepted (the only ones worth a lens's tokens) whose persona has
+// not opted out of verification.
+//
+// A persona opts out with verification.required: false, which spec §7 and
+// §12.4 reserve for deterministic personas: their blockers are certain,
+// diffable facts ("deterministic blockers skip verification per persona
+// config"). Sending them through the model lenses lets a verifier that
+// sees one file snapshot veto a claim that is about a diff, which
+// silently disables the gate rule that config-touching PRs cannot pass
+// with unresolved config-guard blockers. A finding whose persona is not
+// in the registry is still verified, so an unknown source fails closed.
+func verifiable(in []schema.Finding, reg persona.Registry) []int {
 	var idx []int
 	for i, f := range in {
-		if f.Envelope.Verification.Disposition == schema.DispositionAccepted {
-			idx = append(idx, i)
+		if f.Envelope.Verification.Disposition != schema.DispositionAccepted {
+			continue
 		}
+		if rp, ok := reg[f.Envelope.Persona]; ok && !rp.Verification.Required {
+			continue
+		}
+		idx = append(idx, i)
 	}
 	return idx
 }
