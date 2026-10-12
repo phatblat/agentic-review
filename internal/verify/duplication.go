@@ -21,7 +21,7 @@ type Duplication struct{}
 
 func (Duplication) Name() string { return "duplication" }
 
-func (Duplication) Apply(_ context.Context, in []schema.Finding, env Env) ([]schema.Finding, []Verdict, error) {
+func (Duplication) Apply(_ context.Context, in []schema.Finding, _ Env) ([]schema.Finding, []Verdict, error) {
 	out := make([]schema.Finding, len(in))
 	copy(out, in)
 
