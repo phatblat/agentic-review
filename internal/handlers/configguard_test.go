@@ -236,8 +236,8 @@ func TestConfigGuardOverlayAddedToOrdinaryPersonaIsNotFlagged(t *testing.T) {
 }
 
 func TestConfigGuardRequiredWhenRemoved(t *testing.T) {
-	basePersona := "id: security\nkind: agent\nsummary: x\nactivation:\n  required_when: \"facts.diff.touches_review_config\"\n"
-	headPersona := "id: security\nkind: agent\nsummary: x\n"
+	basePersona := "id: security\nkind: agent\nsummary: x\nactivation:\n  required_when: \"facts.diff.touches_review_config\"\nverification:\n  required: true\n"
+	headPersona := "id: security\nkind: agent\nsummary: x\nverification:\n  required: true\n"
 	const path = ".github/agentic-review/personas/security.yaml"
 	store, base, head := cgStore(t, map[string]string{path: basePersona}, map[string]string{path: headPersona})
 	out, _ := ConfigGuard(context.Background(), ConfigGuardInput{

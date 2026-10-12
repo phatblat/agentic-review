@@ -169,6 +169,14 @@ func (d *Definition) validate() error {
 			return fmt.Errorf("persona %q: invalid inputs.tools %q", d.ID, t)
 		}
 	}
+	// verification.required defaults to false when omitted, and false opts a
+	// persona out of every verifier lens (spec §7), including the
+	// fork-mandatory injection lens. Only personas whose findings are not
+	// model-authored claims about the diff may opt out, so an agent persona
+	// must state required: true rather than inherit the zero value.
+	if d.Kind == KindAgent && !d.Verification.Required {
+		return fmt.Errorf("persona %q: kind agent must set verification.required: true", d.ID)
+	}
 	if d.Kind == KindDeterministic {
 		if d.Runtime == nil || !validHandlers[d.Runtime.Handler] {
 			handler := ""

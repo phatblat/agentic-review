@@ -103,7 +103,7 @@ func TestLoadRepoLocalPersonaMergedIntoRegistry(t *testing.T) {
 	writeFile(t, filepath.Join(root, Dir, "config.yaml"), "version: 1\n"+modelsBlock)
 	writeFile(t, filepath.Join(root, Dir, "prompts", "custom.md"), "custom prompt text")
 	writeFile(t, filepath.Join(root, Dir, "personas", "custom.yaml"),
-		"id: custom\nkind: agent\nsummary: x\nactivation:\n  always: true\nprompt:\n  system: ../prompts/custom.md\n")
+		"id: custom\nkind: agent\nsummary: x\nactivation:\n  always: true\nprompt:\n  system: ../prompts/custom.md\nverification:\n  required: true\n")
 
 	reg, prompts, _, err := Load(root)
 	if err != nil {

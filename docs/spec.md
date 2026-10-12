@@ -145,7 +145,7 @@ budget:
   max_tool_calls: 10
 
 verification:
-  required: true                 # deterministic personas may set false
+  required: true                 # agent personas must set true; others may set false
   lenses: [groundedness, materiality]
 ```
 
