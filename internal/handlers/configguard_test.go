@@ -251,6 +251,24 @@ func TestConfigGuardRequiredWhenRemoved(t *testing.T) {
 	}
 }
 
+// The migration PR that adds verification.required: true to a persona is
+// the one whose base side the current rules reject. The comparison must
+// still run, or dropping required_when in the same PR goes unflagged.
+func TestConfigGuardRequiredWhenRemovedAlongsideMigratingThePersona(t *testing.T) {
+	basePersona := "id: security\nkind: agent\nsummary: x\nactivation:\n  required_when: \"facts.diff.touches_review_config\"\n"
+	headPersona := "id: security\nkind: agent\nsummary: x\nverification:\n  required: true\n"
+	const path = ".github/agentic-review/personas/security.yaml"
+	store, base, head := cgStore(t, map[string]string{path: basePersona}, map[string]string{path: headPersona})
+	out, _ := ConfigGuard(context.Background(), ConfigGuardInput{
+		Client: noJudgment{}, Cfg: config.Defaults(), Store: store,
+		Files: []gh.File{{Path: path}}, FileClasses: reviewConfigClasses(path),
+		BaseSHA: base, HeadSHA: head,
+	})
+	if !containsPayloadTitle(out, `required_when removed from persona "security"`) {
+		t.Fatalf("titles = %v, want the required_when blocker even though the base persona no longer validates", payloadTitles(out))
+	}
+}
+
 func TestConfigGuardWorkflowPermissionsChanged(t *testing.T) {
 	baseWorkflow := "name: review\npermissions:\n  contents: read\njobs:\n  review:\n    runs-on: ubuntu-latest\n"
 	headWorkflow := "name: review\npermissions:\n  contents: write\n  pull-requests: write\njobs:\n  review:\n    runs-on: ubuntu-latest\n"

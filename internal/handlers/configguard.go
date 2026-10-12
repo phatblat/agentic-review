@@ -159,11 +159,11 @@ func diffPersonaYAML(path string, base, head []byte) []schema.Payload {
 	if len(head) == 0 || len(base) == 0 {
 		return nil // file deleted or newly added: nothing to compare
 	}
-	headDef, err := persona.ParseDefinition(path, head)
+	headDef, err := persona.DecodeDefinition(path, head)
 	if err != nil {
 		return nil // let the model judgment pass see the raw diff
 	}
-	baseDef, err := persona.ParseDefinition(path, base)
+	baseDef, err := persona.DecodeDefinition(path, base)
 	if err != nil {
 		return nil
 	}

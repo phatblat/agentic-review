@@ -136,11 +136,24 @@ var (
 // load errors) and validates every closed value set. filename is used only
 // for error messages.
 func ParseDefinition(filename string, data []byte) (*Definition, error) {
-	var d Definition
-	if err := yaml.UnmarshalWithOptions(data, &d, yaml.Strict()); err != nil {
-		return nil, fmt.Errorf("persona: %s: %w", filename, err)
+	d, err := DecodeDefinition(filename, data)
+	if err != nil {
+		return nil, err
 	}
 	if err := d.validate(); err != nil {
+		return nil, fmt.Errorf("persona: %s: %w", filename, err)
+	}
+	return d, nil
+}
+
+// DecodeDefinition strict-decodes one persona YAML document without
+// validating it. It is for comparing a persona across two commits, where a
+// file that the current rules would reject (a base-side persona written
+// before a rule tightened) must still be readable. A definition returned
+// from here is not safe to load; use ParseDefinition for that.
+func DecodeDefinition(filename string, data []byte) (*Definition, error) {
+	var d Definition
+	if err := yaml.UnmarshalWithOptions(data, &d, yaml.Strict()); err != nil {
 		return nil, fmt.Errorf("persona: %s: %w", filename, err)
 	}
 	return &d, nil
