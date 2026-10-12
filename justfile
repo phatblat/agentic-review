@@ -75,5 +75,30 @@ live-smoke:
     test -n "$(find /tmp/agentic-review-live-smoke-rec/triage -type f 2>/dev/null)"
     echo "live-smoke: OK"
 
+# Takes no argument on purpose: the tag always equals EXPECTED_VERSION,
+# the version every released binary is stamped with and the shim checks
+# for. Aborts before touching any ref if a preflight fails. See
+# docs/setup.md section 5 for what to do after the release publishes.
+# Tag EXPECTED_VERSION on clean, up-to-date main and push it to trigger release.yml.
+release:
+    #!/usr/bin/env bash
+    set -euo pipefail
+    fail() { echo "release: $*" >&2; exit 1; }
+    tag=$(sed -n 's/^export const EXPECTED_VERSION = "\(.*\)";$/\1/p' shim/index.mjs)
+    [[ "$tag" =~ ^v[0-9]+\.[0-9]+\.[0-9]+$ ]] || fail "EXPECTED_VERSION in shim/index.mjs is '$tag', want vX.Y.Z"
+    branch=$(git branch --show-current)
+    [ "$branch" = "main" ] || fail "must run on main (on '$branch')"
+    [ -z "$(git status --porcelain)" ] || fail "working tree is not clean"
+    git fetch --quiet origin main
+    [ "$(git rev-parse HEAD)" = "$(git rev-parse origin/main)" ] || fail "HEAD differs from origin/main; push or pull first"
+    git rev-parse --quiet --verify "refs/tags/$tag" >/dev/null && fail "tag $tag already exists locally"
+    [ -z "$(git ls-remote --tags origin "refs/tags/$tag")" ] || fail "tag $tag already exists on origin"
+    just check
+    git tag -a "$tag" -m "$tag"
+    git push origin "$tag"
+    echo "release: pushed $tag"
+    echo "release: watch https://github.com/phatblat/agentic-review/actions/workflows/release.yml"
+    echo "release: then copy checksums.txt into CHECKSUMS in shim/index.mjs and bump EXPECTED_VERSION to the next tag (docs/setup.md section 5)"
+
 clean:
     rm -rf agentic-review dist .agentic-review
