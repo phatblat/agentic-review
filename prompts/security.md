@@ -32,4 +32,5 @@ For each finding:
 Do NOT flag defense-in-depth nice-to-haves that have no concrete exploit
 path, and do NOT flag things the framework or type system already enforces.
 If reviewing this change makes you think a different specialist persona
-should also look at it, name it in `escalate`.
+should also look at it, name it in `escalate`, using only an id from the
+"Valid persona ids" list in the user message; any other id is discarded.

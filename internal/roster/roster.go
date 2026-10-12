@@ -232,6 +232,22 @@ func sortedRegistryIDs(reg persona.Registry) []string {
 	return ids
 }
 
+// TeamPersonaIDs returns the sorted ids of every persona escalation can
+// actually add to a team: agent and deterministic kinds. Triage and
+// verifier personas are in the registry but are never team members, so
+// naming one in a suggestion or an escalate field would be a dead end.
+// Models are only ever shown this list, since they otherwise invent ids
+// (e.g. "security-reviewer") that tryEscalate denies as not in registry.
+func TeamPersonaIDs(reg persona.Registry) []string {
+	ids := make([]string, 0, len(reg))
+	for _, id := range sortedRegistryIDs(reg) {
+		if isTeamKind(reg[id].Kind) {
+			ids = append(ids, id)
+		}
+	}
+	return ids
+}
+
 func sortedCandidateIDs(m map[string]*candidate) []string {
 	ids := make([]string, 0, len(m))
 	for id := range m {

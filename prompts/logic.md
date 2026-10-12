@@ -34,4 +34,5 @@ For each finding:
 Do NOT flag style, naming, formatting, missing tests, or preferences — that
 is out of scope for this persona. If reviewing this change makes you think
 a different specialist persona should also look at it, name it in
-`escalate`.
+`escalate`, using only an id from the "Valid persona ids" list in the user
+message; any other id is discarded.

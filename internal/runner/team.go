@@ -141,6 +141,7 @@ func RunTeam(ctx context.Context, deps TeamDeps, reg persona.Registry, rst *rost
 // min(len(members), 4); a member failure is captured and does not
 // cancel its peers.
 func runWave(ctx context.Context, deps TeamDeps, reg persona.Registry, members []roster.Member) map[string]memberOutcome {
+	teamIDs := roster.TeamPersonaIDs(reg)
 	outcomes := make(map[string]memberOutcome, len(members))
 	if len(members) == 0 {
 		return outcomes
@@ -159,7 +160,7 @@ func runWave(ctx context.Context, deps TeamDeps, reg persona.Registry, members [
 		go func(id string, rp *persona.ResolvedPersona) {
 			defer wg.Done()
 			defer func() { <-sem }()
-			payloads, escalate, tokens, err := runMember(ctx, deps, rp)
+			payloads, escalate, tokens, err := runMember(ctx, deps, rp, teamIDs)
 			mu.Lock()
 			outcomes[id] = memberOutcome{payloads: payloads, escalate: escalate, tokens: tokens, err: err}
 			mu.Unlock()
@@ -171,12 +172,12 @@ func runWave(ctx context.Context, deps TeamDeps, reg persona.Registry, members [
 
 // runMember dispatches one roster member's turn: a deterministic-kind
 // persona to internal/handlers, an agent-kind persona to the model.
-func runMember(ctx context.Context, deps TeamDeps, rp *persona.ResolvedPersona) ([]schema.Payload, []string, int, error) {
+func runMember(ctx context.Context, deps TeamDeps, rp *persona.ResolvedPersona, teamIDs []string) ([]schema.Payload, []string, int, error) {
 	if rp.Kind == persona.KindDeterministic {
 		payloads, err := runDeterministic(ctx, deps, rp)
 		return payloads, nil, 0, err
 	}
-	return runAgent(ctx, deps, rp)
+	return runAgent(ctx, deps, rp, teamIDs)
 }
 
 func runDeterministic(ctx context.Context, deps TeamDeps, rp *persona.ResolvedPersona) ([]schema.Payload, error) {
@@ -211,7 +212,7 @@ const (
 	maxAgentRetries = 2  // spec §16's retry budget on a schema-validation failure
 )
 
-func runAgent(ctx context.Context, deps TeamDeps, rp *persona.ResolvedPersona) ([]schema.Payload, []string, int, error) {
+func runAgent(ctx context.Context, deps TeamDeps, rp *persona.ResolvedPersona, teamIDs []string) ([]schema.Payload, []string, int, error) {
 	if rp.Model == nil {
 		return nil, nil, 0, fmt.Errorf("agent persona %q has no model binding", rp.ID)
 	}
@@ -229,6 +230,7 @@ func runAgent(ctx context.Context, deps TeamDeps, rp *persona.ResolvedPersona) (
 	if err != nil {
 		return nil, nil, 0, err
 	}
+	userContent += "\n" + personaIDsBlock("escalate", otherPersonaIDs(teamIDs, rp.ID)) + "\n"
 
 	messages := []infer.Message{
 		{Role: "system", Content: rp.SystemPrompt(deps.Prompts)},

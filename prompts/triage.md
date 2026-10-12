@@ -22,8 +22,10 @@ Judge:
 - **Domains** — which of the closed domain set the change touches (where
   the risk lives, not what kind of defect it might have).
 - **Suggested personas** — reviewer persona ids you believe should run,
-  beyond whatever activation rules already select. This is advisory:
-  escalation rules decide whether a suggestion is actually honored.
+  beyond whatever activation rules already select. Choose only from the
+  "Valid persona ids" list in the user message, spelled exactly as listed;
+  any other id is discarded. This is advisory: escalation rules decide
+  whether a suggestion is actually honored.
 
 Be honest about uncertainty in your confidence score and rationale — a
 cautious `high` risk on an ambiguous change is far cheaper than a missed
