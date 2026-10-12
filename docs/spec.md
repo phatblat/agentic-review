@@ -176,9 +176,13 @@ review:
 Volunteer overflow: sort by `priority`, keep all `required_when` matches
 unconditionally. **Escalations** (from `escalation` rules, persona `escalate`
 outputs, or triage `suggested_personas`) are additive-only, restricted to personas
-already permitted by config, within remaining budget, and always logged via
-`::warning::`. Denied escalations (budget, or an id not in the registry) are
-logged as denied. Models are told which ids are valid: triage's user message
+present in the registry, within remaining budget, and always logged via
+`::warning::`. Escalation does **not** re-evaluate a persona's activation rules
+(`required_when`, `volunteer_on`) or other personas' `excludes`: a registered
+persona can be escalated onto a team even when its own rules would not have
+selected it (e.g. `fork-guard` on a non-fork PR). Denied escalations (budget, or
+an id not in the registry) are logged as denied. Models are told which ids are
+valid: triage's user message
 and every agent persona's user message carry a trusted `Valid persona ids`
 line listing the registry's team-kind personas (agent and deterministic; never
 triage or verifiers, and never the persona itself), so a model has no reason
