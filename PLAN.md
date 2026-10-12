@@ -142,15 +142,4 @@ Expected: only the step-1 lines changed.
 
 ## Status
 
-Reviewed, awaiting Gate 2. No blockers; security-reviewer found nothing. Remaining findings (delivery-reviewer):
-- major, justfile:95 — `git ls-remote` failure is swallowed inside `[ -z "$(…)" ]`, so the remote-tag check silently passes; fix: assign to a variable with `|| fail`.
-- minor, justfile:98 — failed `git push` leaves the local tag, and a rerun then aborts with "already exists locally"; fix: delete the local tag on push failure or print recovery.
-- minor, justfile:97 — tag lands on HEAD after `just check`, not on the SHA that was verified in sync; fix: capture the SHA before the check and `git tag … "$sha"`.
-- minor, justfile:92 — several aborts (fetch, `just check`, missing shim, not a repo) lack a `release:` reason; fix: add `|| fail "…"`.
-- minor, justfile:91 — `git status --porcelain` failure reads as a clean tree; fix: assign with `|| fail`.
-- minor, AGENTS.md:124 — Development Commands list omits `just release`; fix: add a line.
-- nit, justfile:93 — use `git rev-parse --verify refs/remotes/origin/main`.
-- nit, justfile:98 — push `refs/tags/$tag` explicitly.
-- nit, justfile:94 — use `if … then fail` instead of `cmd && fail`.
-- nit, justfile:80 — comment says "touching any ref" but fetch updates refs; reword to "creating or pushing any tag".
-- nit, justfile:83 — the scratch-repo verification is not kept anywhere, so abort paths are not regression-tested.
+Review fixes applied and checked (`just check`, `just --list`, scratch-repo matrix incl. fetch/ls-remote/push/check failures); awaiting second review round.
