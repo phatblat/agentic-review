@@ -32,14 +32,21 @@ func newTestGitHub(t *testing.T, srv *httptest.Server) *GitHub {
 // mock's argument, is what catches this: a fake Port cannot reject a bad
 // enum value.
 func TestCreateFileCommentSendsLowercaseSubjectType(t *testing.T) {
-	var gotPath string
-	var got map[string]any
+	type captured struct {
+		path string
+		body map[string]any
+	}
+	reqs := make(chan captured, 1)
 	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		gotPath = r.Method + " " + r.URL.Path
-		raw, _ := io.ReadAll(r.Body)
-		if err := json.Unmarshal(raw, &got); err != nil {
+		raw, err := io.ReadAll(r.Body)
+		if err != nil {
+			t.Errorf("read request body: %v", err)
+		}
+		var body map[string]any
+		if err := json.Unmarshal(raw, &body); err != nil {
 			t.Errorf("request body is not JSON: %v: %s", err, raw)
 		}
+		reqs <- captured{path: r.Method + " " + r.URL.Path, body: body}
 		w.WriteHeader(http.StatusCreated)
 		_, _ = w.Write([]byte(`{"id":1}`))
 	}))
@@ -51,6 +58,8 @@ func TestCreateFileCommentSendsLowercaseSubjectType(t *testing.T) {
 		t.Fatalf("CreateFileComment: %v", err)
 	}
 
+	req := <-reqs
+	gotPath, got := req.path, req.body
 	if want := "POST /repos/acme/demo/pulls/7/comments"; gotPath != want {
 		t.Errorf("request = %q, want %q", gotPath, want)
 	}
