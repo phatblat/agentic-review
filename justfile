@@ -77,25 +77,29 @@ live-smoke:
 
 # Takes no argument on purpose: the tag always equals EXPECTED_VERSION,
 # the version every released binary is stamped with and the shim checks
-# for. Aborts before touching any ref if a preflight fails. See
+# for. Aborts before creating or pushing any tag if a preflight fails. See
 # docs/setup.md section 5 for what to do after the release publishes.
 # Tag EXPECTED_VERSION on clean, up-to-date main and push it to trigger release.yml.
 release:
     #!/usr/bin/env bash
     set -euo pipefail
     fail() { echo "release: $*" >&2; exit 1; }
+    [ -f shim/index.mjs ] || fail "shim/index.mjs not found (run from the repo root)"
     tag=$(sed -n 's/^export const EXPECTED_VERSION = "\(.*\)";$/\1/p' shim/index.mjs)
     [[ "$tag" =~ ^v[0-9]+\.[0-9]+\.[0-9]+$ ]] || fail "EXPECTED_VERSION in shim/index.mjs is '$tag', want vX.Y.Z"
-    branch=$(git branch --show-current)
+    branch=$(git branch --show-current) || fail "not a git repository"
     [ "$branch" = "main" ] || fail "must run on main (on '$branch')"
-    [ -z "$(git status --porcelain)" ] || fail "working tree is not clean"
-    git fetch --quiet origin main
-    [ "$(git rev-parse HEAD)" = "$(git rev-parse origin/main)" ] || fail "HEAD differs from origin/main; push or pull first"
-    git rev-parse --quiet --verify "refs/tags/$tag" >/dev/null && fail "tag $tag already exists locally"
-    [ -z "$(git ls-remote --tags origin "refs/tags/$tag")" ] || fail "tag $tag already exists on origin"
-    just check
-    git tag -a "$tag" -m "$tag"
-    git push origin "$tag"
+    st=$(git status --porcelain) || fail "git status failed"
+    [ -z "$st" ] || fail "working tree is not clean"
+    git fetch --quiet origin main || fail "could not fetch origin main"
+    head=$(git rev-parse HEAD)
+    [ "$head" = "$(git rev-parse --verify refs/remotes/origin/main)" ] || fail "HEAD differs from origin/main; push or pull first"
+    if git rev-parse --quiet --verify "refs/tags/$tag" >/dev/null; then fail "tag $tag already exists locally"; fi
+    remote_tag=$(git ls-remote --tags origin "refs/tags/$tag") || fail "could not query origin for tag $tag"
+    [ -z "$remote_tag" ] || fail "tag $tag already exists on origin"
+    just check || fail "just check failed"
+    git tag -a "$tag" -m "$tag" "$head"
+    git push origin "refs/tags/$tag" || { git tag -d "$tag" >/dev/null; fail "push of $tag failed; local tag removed, fix and rerun"; }
     echo "release: pushed $tag"
     echo "release: watch https://github.com/phatblat/agentic-review/actions/workflows/release.yml"
     echo "release: then copy checksums.txt into CHECKSUMS in shim/index.mjs and bump EXPECTED_VERSION to the next tag (docs/setup.md section 5)"
