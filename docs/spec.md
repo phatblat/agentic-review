@@ -378,6 +378,11 @@ Lens semantics are fixed by this spec, not config:
   authored under a deterministic persona (config-guard's intent-judgment pass) is
   marked `envelope.model_authored`, gets the evidence byte-match, and passes every
   lens, including the fork-mandatory `injection` lens.
+- `verification.lenses` is validated at load time but not yet consulted at run
+  time: every verifiable finding passes all four lenses in the fixed order
+  above, whatever its persona lists. Treat the field as documentation until a
+  lens-selection rule exists (the fork-mandatory `injection` lens must stay
+  unconditional on agent personas).
 - Verifier calls draw from verifier token budgets; verdicts land in `verdicts.json`.
 
 ---
