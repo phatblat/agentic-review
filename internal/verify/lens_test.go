@@ -108,6 +108,49 @@ func TestRunLeavesDeterministicBlockerUntouched(t *testing.T) {
 	}
 }
 
+// A batch mixing both sides: the required persona's finding is judged and
+// dropped by a lens, while the exempt finding beside it is untouched. The
+// scripted client holds exactly one response, so any lens call for the
+// exempt finding (or a second call at all) fails Run.
+func TestRunMixedBatchJudgesRequiredPersonaAndSparesExemptOne(t *testing.T) {
+	exempt := acceptedBy("f-0001", "config-guard")
+	exempt.Payload = schema.Payload{Severity: "blocker", Claim: "gate.fail_on weakened", Anchor: schema.Anchor{Kind: schema.AnchorFile, Path: "config.yaml"}}
+	judged := acceptedBy("f-0002", "security")
+	judged.Payload = schema.Payload{
+		Severity: "warning", Claim: "token never expires",
+		Anchor:   schema.Anchor{Kind: schema.AnchorLine, Path: "auth.go", StartLine: 3, EndLine: 3},
+		Evidence: []schema.Evidence{{Path: "auth.go", StartLine: 3, EndLine: 3, Source: "x"}},
+	}
+
+	cl := &verdictScriptedClient{responses: []string{
+		`{"verdicts":[{"finding_id":"f-0002","result":"fail","reason":"a guard prevents this"}]}`,
+	}}
+	env := groundednessTestEnv(cl)
+	for id, rp := range optOutRegistry() {
+		env.Reg[id] = rp
+	}
+
+	out, verdicts, err := Run(context.Background(), []schema.Finding{exempt, judged}, env)
+	if err != nil {
+		t.Fatalf("Run: %v", err)
+	}
+	if got := out[0].Envelope.Verification.Disposition; got != schema.DispositionAccepted {
+		t.Errorf("exempt disposition = %q, want accepted", got)
+	}
+	if got := out[1].Envelope.Verification.Disposition; got != schema.DispositionDropped {
+		t.Errorf("judged disposition = %q, want dropped by groundedness", got)
+	}
+	if len(out[0].Envelope.Verification.Verdicts) != 0 {
+		t.Errorf("exempt verdicts = %+v, want none", out[0].Envelope.Verification.Verdicts)
+	}
+	if len(verdicts) != 1 || verdicts[0].Lens != "groundedness" || verdicts[0].Result != "fail" {
+		t.Errorf("verdicts = %+v, want a single failed groundedness verdict", verdicts)
+	}
+	if cl.calls != 1 {
+		t.Errorf("model calls = %d, want 1 (only the required persona's finding is judged)", cl.calls)
+	}
+}
+
 func TestRunAggregatesVerdictsAcrossLenses(t *testing.T) {
 	// Run() always uses the fixed Order(); this test exercises Run's
 	// aggregation and error-wrapping behavior directly against a lens
