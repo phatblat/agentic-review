@@ -15,7 +15,7 @@ permissions:
 
 jobs:
   build:
-    runs-on: ubuntu-latest
+    runs-on: arc-ubuntu-24.04-arm64
     strategy:
       matrix:
         include:
@@ -48,7 +48,7 @@ jobs:
 
   release:
     needs: build
-    runs-on: ubuntu-latest
+    runs-on: arc-ubuntu-24.04-arm64
     steps:
       - uses: actions/checkout@v7.0.1
 

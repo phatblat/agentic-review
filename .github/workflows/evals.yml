@@ -1,7 +1,8 @@
 name: Evals
 
 # Spec §13.5 item 4: a scheduled live-eval job against the labelled PR
-# set on the self-hosted Spark runner. Drift detection only — never a
+# set on the arc-ubuntu-24.04-arm64 ARC runners, which reach the Spark
+# endpoint over the LAN. Drift detection only — never a
 # PR gate: every step below runs to completion and the job never fails
 # the workflow on a review's own exit code, so this can only ever
 # surface drift as posted PR comments for a human to notice, never
@@ -18,7 +19,7 @@ permissions:
 
 jobs:
   evals:
-    runs-on: [self-hosted, spark]
+    runs-on: arc-ubuntu-24.04-arm64
     steps:
       - uses: actions/checkout@v7.0.1
 
