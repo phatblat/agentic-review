@@ -318,6 +318,7 @@ Nothing model-emitted can forge provenance or verdicts.
     "persona": "security", "persona_kind": "agent",
     "model": "review/qwen3-32b@spark",
     "head_sha": "…",
+    "model_authored": true,        // optional; only on a model-authored finding under a deterministic persona (§7)
     "verification": {
       "verdicts": [ { "lens": "groundedness", "result": "pass",
                       "checked": "mechanical+model" } ],
