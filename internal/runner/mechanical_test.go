@@ -86,45 +86,63 @@ func TestMechanicalValidateChecksEvidenceOfModelAuthoredDeterministicFindings(t 
 	}
 }
 
-// A deleted persona file is exactly where config-guard's model quotes base
-// content. With anchor.ref: base (which the config-guard prompt asks for)
-// the quote is grounded against base and the finding survives; without it
-// the quote is looked up at head, where the file is gone, and the finding
-// is dropped.
-func TestMechanicalValidateModelAuthoredBaseSideEvidenceOfDeletedFile(t *testing.T) {
+// config-guard's model pass is shown both sides of each config file and is
+// asked for a single anchor.ref, but its findings naturally quote removed
+// and added text together ("X changed from A to B") or quote a deleted file.
+// Each evidence entry of a ModelAuthored finding is grounded against the
+// anchor's side first, then the other; the quote must still exist verbatim
+// in one real file.
+func TestMechanicalValidateModelAuthoredEvidenceMayComeFromEitherSide(t *testing.T) {
 	dir := t.TempDir()
 	mustWrite(t, filepath.Join(dir, "pr.json"), `{"number":1,"head_sha":"headsha","base_sha":"basesha"}`)
-	mustWrite(t, filepath.Join(dir, "base", "p.yaml"), "id: security\nrequired_when: x\n")
+	mustWrite(t, filepath.Join(dir, "base", "deleted.yaml"), "id: security\nrequired_when: x\n")
+	mustWrite(t, filepath.Join(dir, "base", "c.yaml"), "gate:\n  fail_on: warning\n")
+	mustWrite(t, filepath.Join(dir, "head", "c.yaml"), "gate:\n  fail_on: error\n")
 	fake, err := gh.LoadFake(dir)
 	if err != nil {
 		t.Fatalf("LoadFake: %v", err)
 	}
 	store := gh.NewContentStore(fake, gh.Repo{Owner: "acme", Name: "demo"})
 
-	judged := func(id string, ref schema.AnchorRef) schema.Finding {
+	finding := func(id string, kind persona.Kind, modelAuthored bool, ref schema.AnchorRef, ev ...schema.Evidence) schema.Finding {
 		return schema.Finding{
 			Payload: schema.Payload{
 				Category: "config", Severity: "warning", Title: "t", Claim: "c",
-				Anchor:   schema.Anchor{Kind: schema.AnchorFile, Path: "p.yaml", Ref: ref},
-				Evidence: []schema.Evidence{{Path: "p.yaml", StartLine: 2, EndLine: 2, Source: "required_when: x"}},
+				Anchor:   schema.Anchor{Kind: schema.AnchorFile, Path: ev[0].Path, Ref: ref},
+				Evidence: ev,
 			},
-			Envelope: schema.Envelope{ID: id, PersonaKind: string(persona.KindDeterministic), ModelAuthored: true},
+			Envelope: schema.Envelope{ID: id, PersonaKind: string(kind), ModelAuthored: modelAuthored},
 		}
 	}
+	oldQuote := schema.Evidence{Path: "c.yaml", StartLine: 2, EndLine: 2, Source: "fail_on: warning"}
+	newQuote := schema.Evidence{Path: "c.yaml", StartLine: 2, EndLine: 2, Source: "fail_on: error"}
+	deleted := schema.Evidence{Path: "deleted.yaml", StartLine: 2, EndLine: 2, Source: "required_when: x"}
+	invented := schema.Evidence{Path: "c.yaml", StartLine: 2, EndLine: 2, Source: "fail_on: never"}
 
-	out := mechanicalValidate(context.Background(),
-		[]schema.Finding{judged("base-ref", schema.RefBase), judged("default-ref", "")},
-		store, nil, map[string]bool{"p.yaml": true}, "headsha", "basesha", 50)
+	det := persona.KindDeterministic
+	out := mechanicalValidate(context.Background(), []schema.Finding{
+		finding("deleted-default-ref", det, true, "", deleted),
+		finding("two-sided-head-anchor", det, true, schema.RefHead, oldQuote, newQuote),
+		finding("two-sided-base-anchor", det, true, schema.RefBase, newQuote, oldQuote),
+		finding("in-neither-side", det, true, schema.RefBase, oldQuote, invented),
+		finding("agent-no-fallback", persona.KindAgent, false, "", deleted),
+	}, store, nil, map[string]bool{"c.yaml": true, "deleted.yaml": true}, "headsha", "basesha", 50)
 
 	got := map[string]schema.Disposition{}
 	for _, f := range out {
 		got[f.Envelope.ID] = f.Envelope.Verification.Disposition
 	}
-	if got["base-ref"] == schema.DispositionDropped {
-		t.Errorf("base-ref finding dropped, want it grounded against base content")
+	want := map[string]bool{ // true = dropped
+		"deleted-default-ref":   false,
+		"two-sided-head-anchor": false,
+		"two-sided-base-anchor": false,
+		"in-neither-side":       true,
+		"agent-no-fallback":     true, // agents get no second side
 	}
-	if got["default-ref"] != schema.DispositionDropped {
-		t.Errorf("default-ref disposition = %q, want dropped: the file does not exist at head", got["default-ref"])
+	for id, dropped := range want {
+		if isDropped := got[id] == schema.DispositionDropped; isDropped != dropped {
+			t.Errorf("%s: dropped = %v, want %v (disposition %q)", id, isDropped, dropped, got[id])
+		}
 	}
 }
 

@@ -335,6 +335,10 @@ Validation rules:
   stated lines. Checked mechanically before any verifier model runs; mismatch ⇒ drop
   without token spend. Agent findings with no evidence fail schema validation.
   Deterministic-persona findings may omit evidence (their output is ground truth).
+  A `model_authored` finding (§7) is not ground truth: its evidence is checked like
+  an agent's, except each entry may match at either `head_sha` or the base commit
+  (the `anchor.ref` side is tried first), since config-guard's model sees both and
+  its findings often quote a change from both sides.
 - **Anchors** — `line` anchors must fall within changed hunks. Failing anchors:
   `::warning::`, demote to `file` (if the file is in the diff) else to `pr`.
 - **suggested_fix** — must dry-run-apply cleanly to the anchored lines at `head_sha`;
