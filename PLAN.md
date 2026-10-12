@@ -142,4 +142,9 @@ Expected: only the step-1 lines changed.
 
 ## Status
 
-Review fixes applied and checked (`just check`, `just --list`, scratch-repo matrix incl. fetch/ls-remote/push/check failures); awaiting second review round.
+Reviewed, awaiting Gate 2. No blockers; security-reviewer found nothing (two rounds). Round-1 findings all fixed. Remaining findings (delivery-reviewer, round 2):
+- minor, justfile:102 — if `git tag -d` fails during push-failure cleanup, the script exits with no `release:` reason and the local tag stays; fix: `|| fail "… run: git tag -d $tag"` on the cleanup.
+- minor, justfile:101 — `git tag -a …` (missing tagger identity, gpgSign, ref lock) and `head=$(git rev-parse HEAD)` have no `|| fail`; fix: add `|| fail "could not create tag $tag"` / `--verify HEAD … || fail`.
+- nit, justfile:87 — "(run from the repo root)" hint is wrong, just runs recipes from the justfile directory; fix: "not found next to the justfile".
+- nit, justfile:90 and :96 — "not a git repository" and "HEAD differs from origin/main" can mislead when git is old or `refs/remotes/origin/main` is missing; fix: more precise messages / resolve origin ref with `|| fail`.
+- nit, AGENTS.md:124 — line lists "run just check" after "tag", but check runs first; reorder wording.
