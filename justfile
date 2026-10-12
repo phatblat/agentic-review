@@ -98,8 +98,8 @@ release:
     remote_tag=$(git ls-remote --tags origin "refs/tags/$tag") || fail "could not query origin for tag $tag"
     [ -z "$remote_tag" ] || fail "tag $tag already exists on origin"
     just check || fail "just check failed"
-    git tag -a "$tag" -m "$tag" "$head"
-    git push origin "refs/tags/$tag" || { git tag -d "$tag" >/dev/null; fail "push of $tag failed; local tag removed, fix and rerun"; }
+    git tag -a "$tag" -m "$tag" "$head" || fail "could not create tag $tag (check tag.gpgSign and git user.name/user.email)"
+    git push origin "refs/tags/$tag" || { git tag -d "$tag" >/dev/null; fail "push of $tag failed; local tag removed. Run 'git ls-remote --tags origin' before rerunning: if origin already has $tag, the release workflow may have started"; }
     echo "release: pushed $tag"
     echo "release: watch https://github.com/phatblat/agentic-review/actions/workflows/release.yml"
     echo "release: then copy checksums.txt into CHECKSUMS in shim/index.mjs and bump EXPECTED_VERSION to the next tag (docs/setup.md section 5)"
