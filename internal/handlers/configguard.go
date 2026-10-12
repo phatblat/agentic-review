@@ -273,5 +273,8 @@ func judgeIntent(ctx context.Context, in ConfigGuardInput, diffText string) ([]s
 		}
 		return nil, err
 	}
+	for i := range findingsResp.Findings {
+		findingsResp.Findings[i].ModelAuthored = true
+	}
 	return findingsResp.Findings, nil
 }

@@ -154,16 +154,22 @@ type SuggestedFix struct {
 // Payload is a finding's model-emitted content — everything the findings.v1
 // schema validates. It never carries provenance or verdict fields; those
 // live in Envelope, which the runtime stamps after decode.
+//
+// ModelAuthored is the one runtime-side exception: a handler for a
+// deterministic persona sets it on payloads it decoded from a model, so
+// stampEnvelope can carry the fact to Envelope.ModelAuthored. It is
+// excluded from JSON, so a model can neither emit nor forge it.
 type Payload struct {
-	Category     string        `json:"category"`
-	Severity     string        `json:"severity"`
-	Title        string        `json:"title"`
-	Claim        string        `json:"claim"`
-	Domains      []string      `json:"domains,omitempty"`
-	Anchor       Anchor        `json:"anchor"`
-	Evidence     []Evidence    `json:"evidence,omitempty"`
-	SuggestedFix *SuggestedFix `json:"suggested_fix,omitempty"`
-	Confidence   float64       `json:"confidence"`
+	Category      string        `json:"category"`
+	Severity      string        `json:"severity"`
+	Title         string        `json:"title"`
+	Claim         string        `json:"claim"`
+	Domains       []string      `json:"domains,omitempty"`
+	Anchor        Anchor        `json:"anchor"`
+	Evidence      []Evidence    `json:"evidence,omitempty"`
+	SuggestedFix  *SuggestedFix `json:"suggested_fix,omitempty"`
+	Confidence    float64       `json:"confidence"`
+	ModelAuthored bool          `json:"-"`
 }
 
 // Disposition is a finding's final fate after verification.
@@ -204,6 +210,12 @@ type Envelope struct {
 	PersonaKind string `json:"persona_kind"`
 	Model       string `json:"model"`
 	HeadSHA     string `json:"head_sha"`
+	// ModelAuthored marks a finding whose content came from a model even
+	// though its persona is deterministic (config-guard's intent-judgment
+	// pass). Such a finding gets the evidence check and every verifier lens
+	// regardless of its persona's verification.required: only facts a
+	// handler computes in code are exempt.
+	ModelAuthored bool `json:"model_authored,omitempty"`
 	// MergedPersonas lists every contributing persona id when the
 	// duplication lens merged two or more findings into this one
 	// (spec item 35); empty when this finding was never merged.

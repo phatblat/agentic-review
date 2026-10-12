@@ -69,6 +69,19 @@ func TestVerifiableHonorsPersonaOptOut(t *testing.T) {
 	}
 }
 
+// The opt-out covers a persona's code-computed facts, not findings a model
+// authored under that persona (config-guard's intent-judgment pass).
+func TestVerifiableKeepsModelAuthoredFindingOfOptedOutPersona(t *testing.T) {
+	judged := acceptedBy("f-0001", "config-guard")
+	judged.Envelope.ModelAuthored = true
+	fact := acceptedBy("f-0002", "config-guard")
+
+	idx := verifiable([]schema.Finding{judged, fact}, optOutRegistry())
+	if len(idx) != 1 || idx[0] != 0 {
+		t.Fatalf("idx = %v, want [0]: the model-authored finding is verified, the deterministic fact is not", idx)
+	}
+}
+
 // Regression: a config-guard blocker went through the model lenses, and
 // groundedness judged "gate.fail_on weakened" against a single file
 // snapshot and dropped it, so a config-touching PR passed its gate (spec

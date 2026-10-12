@@ -58,6 +58,34 @@ func TestMechanicalValidateEvidenceByteMatchSurvives(t *testing.T) {
 	}
 }
 
+// config-guard's model pass emits findings/v1 evidence under a
+// deterministic persona; it gets the same byte-match as an agent's, while
+// the persona's code-computed facts (no evidence) are left alone.
+func TestMechanicalValidateChecksEvidenceOfModelAuthoredDeterministicFindings(t *testing.T) {
+	store := mechTestStore(t, map[string]string{"f.go": "line1\nline2\nline3\n"})
+	judged := agentFinding("f.go", 2, 2, "invented quote")
+	judged.Envelope.PersonaKind = string(persona.KindDeterministic)
+	judged.Envelope.ModelAuthored = true
+	fact := schema.Finding{
+		Payload:  schema.Payload{Category: "config", Severity: "blocker", Title: "t", Claim: "c", Anchor: schema.Anchor{Kind: schema.AnchorFile, Path: "f.go"}},
+		Envelope: schema.Envelope{ID: "fact", PersonaKind: string(persona.KindDeterministic)},
+	}
+	judged.Envelope.ID = "judged"
+
+	out := mechanicalValidate(context.Background(), []schema.Finding{judged, fact}, store, nil, map[string]bool{"f.go": true}, "headsha", "basesha", 50)
+
+	got := map[string]schema.Disposition{}
+	for _, f := range out {
+		got[f.Envelope.ID] = f.Envelope.Verification.Disposition
+	}
+	if got["judged"] != schema.DispositionDropped {
+		t.Errorf("judged disposition = %q, want dropped: its evidence does not match the file", got["judged"])
+	}
+	if got["fact"] == schema.DispositionDropped {
+		t.Errorf("fact was dropped, want a no-evidence deterministic fact left alone")
+	}
+}
+
 func TestMechanicalValidateEvidenceMismatchDrops(t *testing.T) {
 	store := mechTestStore(t, map[string]string{"f.go": "line1\nline2\nline3\n"})
 	f := agentFinding("f.go", 2, 2, "not what is actually there")

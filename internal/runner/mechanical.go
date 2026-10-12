@@ -29,7 +29,9 @@ func mechanicalValidate(ctx context.Context, findings []schema.Finding, store *g
 	dropped := make([]schema.Finding, 0)
 
 	for _, f := range findings {
-		if f.Envelope.PersonaKind == string(persona.KindAgent) {
+		// Deterministic personas' own facts have nothing to byte-match, but
+		// config-guard's model pass emits findings/v1 evidence like any agent.
+		if f.Envelope.PersonaKind == string(persona.KindAgent) || f.Envelope.ModelAuthored {
 			grounded, reason, ok := groundEvidence(ctx, f, store, headSHA, baseSHA)
 			if !ok {
 				f.Envelope.Verification.Disposition = schema.DispositionDropped

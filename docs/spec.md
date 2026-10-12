@@ -373,7 +373,11 @@ Lens semantics are fixed by this spec, not config:
 
 - `groundedness` runs its mechanical byte-match first, model judgment second.
 - Agent-emitted `blocker`s require a full verdict pass to survive; deterministic
-  blockers skip verification per persona config.
+  blockers skip verification per persona config (`verification.required: false`).
+  The opt-out covers only facts a handler computes in code. A finding a model
+  authored under a deterministic persona (config-guard's intent-judgment pass) is
+  marked `envelope.model_authored`, gets the evidence byte-match, and passes every
+  lens, including the fork-mandatory `injection` lens.
 - Verifier calls draw from verifier token budgets; verdicts land in `verdicts.json`.
 
 ---
