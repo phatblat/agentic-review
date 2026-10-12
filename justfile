@@ -88,7 +88,7 @@ release:
     tag=$(sed -n 's/^export const EXPECTED_VERSION = "\(.*\)";$/\1/p' shim/index.mjs)
     [[ "$tag" =~ ^v[0-9]+\.[0-9]+\.[0-9]+$ ]] || fail "EXPECTED_VERSION in shim/index.mjs is '$tag', want vX.Y.Z"
     branch=$(git branch --show-current) || fail "not a git repository"
-    [ "$branch" = "main" ] || fail "must run on main (on '$branch')"
+    [ "$branch" = "main" ] || fail "must run on main (on '${branch:-detached HEAD}')"
     st=$(git status --porcelain) || fail "git status failed"
     [ -z "$st" ] || fail "working tree is not clean"
     git fetch --quiet origin main || fail "could not fetch origin main"
