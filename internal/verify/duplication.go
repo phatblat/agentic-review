@@ -5,15 +5,18 @@ import (
 	"fmt"
 	"sort"
 
+	"github.com/phatblat/agentic-review/internal/persona"
 	"github.com/phatblat/agentic-review/internal/schema"
 )
 
 // Duplication is spec §7's duplication lens: pure code, no model. Findings
 // merge when their fingerprints are equal, or when (path, anchor start,
 // anchor end) are equal and their normalised claim stems match. The
-// survivor is the highest severity, tie-broken by highest confidence then
-// lowest envelope.id; every contributing persona is credited on the
-// survivor's envelope; losers get disposition merged.
+// survivor is the highest severity, tie-broken by preferring a finding its
+// persona computed in code (exempt from the model lenses, so a later lens
+// cannot downgrade or drop it), then highest confidence, then lowest
+// envelope.id; every contributing persona is credited on the survivor's
+// envelope; losers get disposition merged.
 type Duplication struct{}
 
 func (Duplication) Name() string { return "duplication" }
@@ -89,7 +92,8 @@ func (Duplication) Apply(_ context.Context, in []schema.Finding, env Env) ([]sch
 }
 
 // pickSurvivor returns the global index (into in) of the highest-severity
-// member, tie-broken by highest confidence then lowest envelope.id.
+// member, tie-broken by preferring a code-computed finding, then highest
+// confidence, then lowest envelope.id.
 func pickSurvivor(in []schema.Finding, globalMembers []int) int {
 	best := globalMembers[0]
 	for _, g := range globalMembers[1:] {
@@ -97,6 +101,10 @@ func pickSurvivor(in []schema.Finding, globalMembers []int) int {
 		switch {
 		case severityRank(a.Payload.Severity) != severityRank(b.Payload.Severity):
 			if severityRank(a.Payload.Severity) > severityRank(b.Payload.Severity) {
+				best = g
+			}
+		case codeComputed(a) != codeComputed(b):
+			if codeComputed(a) {
 				best = g
 			}
 		case a.Payload.Confidence != b.Payload.Confidence:
@@ -108,6 +116,14 @@ func pickSurvivor(in []schema.Finding, globalMembers []int) int {
 		}
 	}
 	return best
+}
+
+// codeComputed reports whether f is a fact a deterministic persona derived
+// in code, not text a model authored. Such a finding may be exempt from the
+// model lenses; letting a model-verified duplicate absorb it would put it
+// back in front of materiality, which can downgrade or drop the survivor.
+func codeComputed(f schema.Finding) bool {
+	return f.Envelope.PersonaKind == string(persona.KindDeterministic) && !f.Envelope.ModelAuthored
 }
 
 func severityRank(s string) int {

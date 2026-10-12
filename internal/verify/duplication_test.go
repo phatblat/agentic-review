@@ -4,6 +4,7 @@ import (
 	"context"
 	"testing"
 
+	"github.com/phatblat/agentic-review/internal/persona"
 	"github.com/phatblat/agentic-review/internal/schema"
 )
 
@@ -64,6 +65,39 @@ func TestDuplicationMergesFindingsOfOptedOutPersona(t *testing.T) {
 	if out[0].Envelope.Verification.Disposition != schema.DispositionAccepted || out[1].Envelope.Verification.Disposition != schema.DispositionMerged {
 		t.Errorf("dispositions = %q, %q; want the blocker accepted and the duplicate merged",
 			out[0].Envelope.Verification.Disposition, out[1].Envelope.Verification.Disposition)
+	}
+}
+
+// A code-computed fact is exempt from the model lenses. If a model-verified
+// duplicate tied it on severity and confidence and won on a lower id, the
+// fact would be folded into a survivor that materiality can downgrade or
+// drop, reopening the config-guard gate bypass (spec §12.4(4)).
+func TestDuplicationSurvivorPrefersCodeComputedFactOnTie(t *testing.T) {
+	agent := dupFinding("f-0001", "sha256:same", "security", "a.go", 1, 1, "gate weakened", "blocker", 1)
+	agent.Envelope.PersonaKind = string(persona.KindAgent)
+	fact := dupFinding("f-0002", "sha256:same", "config-guard", "a.go", 1, 1, "gate weakened", "blocker", 1)
+	fact.Envelope.PersonaKind = string(persona.KindDeterministic)
+
+	out, _, err := Duplication{}.Apply(context.Background(), []schema.Finding{agent, fact}, Env{})
+	if err != nil {
+		t.Fatalf("Apply: %v", err)
+	}
+	if out[1].Envelope.Verification.Disposition != schema.DispositionAccepted {
+		t.Errorf("fact disposition = %q, want accepted (survivor)", out[1].Envelope.Verification.Disposition)
+	}
+	if out[0].Envelope.Verification.Disposition != schema.DispositionMerged {
+		t.Errorf("agent disposition = %q, want merged into the fact", out[0].Envelope.Verification.Disposition)
+	}
+
+	// A deterministic persona's model-authored finding is not a fact.
+	judged := fact
+	judged.Envelope.ModelAuthored = true
+	out, _, err = Duplication{}.Apply(context.Background(), []schema.Finding{agent, judged}, Env{})
+	if err != nil {
+		t.Fatalf("Apply: %v", err)
+	}
+	if out[0].Envelope.Verification.Disposition != schema.DispositionAccepted {
+		t.Errorf("agent disposition = %q, want accepted: a model-authored duplicate gets no preference", out[0].Envelope.Verification.Disposition)
 	}
 }
 
