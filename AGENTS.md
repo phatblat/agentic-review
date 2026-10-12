@@ -121,13 +121,15 @@ just smoke          # CLI smoke (plan subcommand, no models) + shim smoke
                      # (shim/index.mjs with AGENTIC_REVIEW_DRY_RUN=1, no network)
 just live-smoke      # only runs if AGENTIC_REVIEW_ENDPOINT/AGENTIC_REVIEW_MODEL set;
                      # otherwise prints a notice and exits 0 — never fails CI
+just release        # tag the shim's EXPECTED_VERSION on clean, in-sync main, run just check,
+                     # push the tag (triggers release.yml)
 just clean          # rm -rf agentic-review dist .agentic-review
 ```
 
 CI (`.github/workflows/ci.yml`) runs `just check` then cross-compiles
 (linux/amd64, linux/arm64, darwin/arm64). `dogfood.yml` self-reviews every PR with the
 in-flight binary via `uses: ./`. `release.yml` publishes cross-compiled binaries +
-`checksums.txt` on `v*` tags.
+`checksums.txt` on `v*` tags; cut tags with `just release`.
 
 ## Code Conventions & Common Patterns
 
