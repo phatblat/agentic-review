@@ -34,7 +34,7 @@ Every abort prints `release: <reason>` to stderr and exits non-zero **before** a
 **Files:**
 - Modify: `justfile` (insert between the `live-smoke` recipe, ending at line 76, and `clean` at line 78)
 
-- [ ] **Step 1: Insert the recipe**
+- [x] **Step 1: Insert the recipe**
 
 Insert this block after `live-smoke` (and its trailing blank line) and before `clean`, keeping one blank line between recipes:
 
@@ -66,15 +66,15 @@ release:
     echo "release: then copy checksums.txt into CHECKSUMS in shim/index.mjs and bump EXPECTED_VERSION to the next tag (docs/setup.md section 5)"
 ```
 
-- [ ] **Step 2: Confirm just parses it and lists it**
+- [x] **Step 2: Confirm just parses it and lists it**
 
 Run: `just --list`
-Expected: exit 0, output includes a `release` line with the first comment line above as its description.
+Expected: exit 0, output includes a `release` line whose description is the last comment line above the recipe (`just --list` shows the last line).
 
 Run: `just --show release`
 Expected: prints the recipe body exactly as inserted.
 
-- [ ] **Step 3: Throwaway verification in a scratch repo (never the real repo)**
+- [x] **Step 3: Throwaway verification in a scratch repo (never the real repo)**
 
 The real repo is on a feature branch, so running `just release` there aborts at the branch check. Do NOT run it with a real `origin`. Build a scratch setup under `$(mktemp -d)`; commits and pushes inside the scratch repos are allowed, and only there:
 
@@ -105,7 +105,7 @@ Then exercise each case from `$S/work` (use the bash tool's `cwd`, never `cd` in
 
 Expected: every row behaves as stated. If a row fails, fix the recipe in the real repo's `justfile`, re-copy it to `$S/work`, and rerun the failing row.
 
-- [ ] **Step 4: Remove the scratch directory**
+- [x] **Step 4: Remove the scratch directory**
 
 Run: `rm -rf "$S"`
 Then confirm in the real repo: `git status --porcelain` shows only ` M justfile` (and `PLAN.md`), and `git tag -l` is empty.
@@ -142,4 +142,4 @@ Expected: only the step-1 lines changed.
 
 ## Status
 
-Not started.
+Task 1 built and checked (`just lint`, `just test`, scratch-repo verification of all abort paths and a successful tag push).
