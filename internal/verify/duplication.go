@@ -22,7 +22,11 @@ func (Duplication) Apply(_ context.Context, in []schema.Finding, env Env) ([]sch
 	out := make([]schema.Finding, len(in))
 	copy(out, in)
 
-	idx := verifiable(in, env.Reg)
+	// Duplication is mechanical, so it merges every accepted finding,
+	// including those whose persona opted out of the model lenses: an
+	// exempt config-guard fact and an agent finding about the same anchor
+	// must not post twice.
+	idx := accepted(in)
 	if len(idx) < 2 {
 		return out, nil, nil
 	}

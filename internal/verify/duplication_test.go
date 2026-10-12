@@ -47,6 +47,26 @@ func TestDuplicationMergesEqualFingerprints(t *testing.T) {
 	}
 }
 
+// Duplication is mechanical, so a persona's opt-out from the model lenses
+// must not stop its findings from merging with an agent's.
+func TestDuplicationMergesFindingsOfOptedOutPersona(t *testing.T) {
+	in := []schema.Finding{
+		dupFinding("f-0001", "sha256:same", "config-guard", "a.go", 1, 1, "gate weakened", "blocker", 1),
+		dupFinding("f-0002", "sha256:same", "security", "a.go", 1, 1, "gate weakened", "warning", 0.5),
+	}
+	out, verdicts, err := Duplication{}.Apply(context.Background(), in, Env{Reg: optOutRegistry()})
+	if err != nil {
+		t.Fatalf("Apply: %v", err)
+	}
+	if len(verdicts) != 1 {
+		t.Fatalf("verdicts = %+v, want exactly 1 (the agent's duplicate merged away)", verdicts)
+	}
+	if out[0].Envelope.Verification.Disposition != schema.DispositionAccepted || out[1].Envelope.Verification.Disposition != schema.DispositionMerged {
+		t.Errorf("dispositions = %q, %q; want the blocker accepted and the duplicate merged",
+			out[0].Envelope.Verification.Disposition, out[1].Envelope.Verification.Disposition)
+	}
+}
+
 func TestDuplicationMergesEqualAnchorAndClaimStem(t *testing.T) {
 	in := []schema.Finding{
 		dupFinding("f-0001", "sha256:aaa", "logic", "a.go", 10, 20, "this function leaks a database connection on error", "warning", 0.5),
