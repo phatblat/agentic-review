@@ -75,14 +75,14 @@ live-smoke:
     test -n "$(find /tmp/agentic-review-live-smoke-rec/triage -type f 2>/dev/null)"
     echo "live-smoke: OK"
 
-# Takes no argument on purpose: the tag always equals EXPECTED_VERSION,
-# the version every released binary is stamped with and the shim checks
-# for. Aborts before creating or pushing any tag if a preflight fails. See
-# docs/setup.md section 5 for what to do after the release publishes.
 # Tag EXPECTED_VERSION on clean, up-to-date main and push it to trigger release.yml.
 release:
     #!/usr/bin/env bash
     set -euo pipefail
+    # Takes no argument on purpose: the tag always equals EXPECTED_VERSION,
+    # the version every released binary is stamped with and the shim checks
+    # for. Aborts before creating or pushing any tag if a preflight fails.
+    # See docs/setup.md section 5 for what to do after the release publishes.
     fail() { echo "release: $*" >&2; exit 1; }
     [ -f shim/index.mjs ] || fail "shim/index.mjs not found (run from the repo root)"
     tag=$(sed -n 's/^export const EXPECTED_VERSION = "\(.*\)";$/\1/p' shim/index.mjs)
