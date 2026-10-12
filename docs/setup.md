@@ -297,5 +297,6 @@ To replace the build-from-source pre-step with `uses: phatblat/agentic-review@vX
    darwin/arm64, then publishes `checksums.txt`.
 2. Copy those checksums into `CHECKSUMS` in `shim/index.mjs`, keyed
    `<os>-<arch>`, and set `EXPECTED_VERSION` to the *next* tag.
-3. Tag again. That second tag is the first one whose download rung works —
-   a release cannot contain the checksums of its own artifacts.
+3. Merge that change to `main`, then run `just release` again. That second
+   tag is the first one whose download rung works — a release cannot contain
+   the checksums of its own artifacts.
