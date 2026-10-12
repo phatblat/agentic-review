@@ -145,7 +145,7 @@ budget:
   max_tool_calls: 10
 
 verification:
-  required: true                 # deterministic personas may set false
+  required: true                 # agent personas must set true; others may set false
   lenses: [groundedness, materiality]
 ```
 
@@ -318,6 +318,7 @@ Nothing model-emitted can forge provenance or verdicts.
     "persona": "security", "persona_kind": "agent",
     "model": "review/qwen3-32b@spark",
     "head_sha": "…",
+    "model_authored": true,        // optional; only on a model-authored finding under a deterministic persona (§7)
     "verification": {
       "verdicts": [ { "lens": "groundedness", "result": "pass",
                       "checked": "mechanical+model" } ],
@@ -334,6 +335,10 @@ Validation rules:
   stated lines. Checked mechanically before any verifier model runs; mismatch ⇒ drop
   without token spend. Agent findings with no evidence fail schema validation.
   Deterministic-persona findings may omit evidence (their output is ground truth).
+  A `model_authored` finding (§7) is not ground truth: its evidence is checked like
+  an agent's, except each entry may match at either `head_sha` or the base commit
+  (the `anchor.ref` side is tried first), since config-guard's model sees both and
+  its findings often quote a change from both sides.
 - **Anchors** — `line` anchors must fall within changed hunks. Failing anchors:
   `::warning::`, demote to `file` (if the file is in the diff) else to `pr`.
 - **suggested_fix** — must dry-run-apply cleanly to the anchored lines at `head_sha`;
@@ -373,7 +378,20 @@ Lens semantics are fixed by this spec, not config:
 
 - `groundedness` runs its mechanical byte-match first, model judgment second.
 - Agent-emitted `blocker`s require a full verdict pass to survive; deterministic
-  blockers skip verification per persona config.
+  blockers skip verification per persona config (`verification.required: false`).
+  The opt-out covers only facts a handler computes in code. A finding a model
+  authored under a deterministic persona (config-guard's intent-judgment pass) is
+  marked `envelope.model_authored`, gets the evidence byte-match, and passes every
+  lens, including the fork-mandatory `injection` lens.
+  Exempt facts still run `injection`'s mechanical screen (no model call), because
+  their text interpolates PR-head values (config entries, advisory summaries,
+  package names): on a hit the flagged text is redacted and the finding is kept,
+  never dropped, so the §12.4(4) gate rule cannot be suppressed by hostile text.
+- `verification.lenses` is validated at load time but not yet consulted at run
+  time: every verifiable finding passes all four lenses in the fixed order
+  above, whatever its persona lists. Treat the field as documentation until a
+  lens-selection rule exists (the fork-mandatory `injection` lens must stay
+  unconditional on agent personas).
 - Verifier calls draw from verifier token budgets; verdicts land in `verdicts.json`.
 
 ---

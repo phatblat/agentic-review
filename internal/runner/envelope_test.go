@@ -59,3 +59,17 @@ func TestStampEnvelopeDeterministicPersonaHasEmptyModel(t *testing.T) {
 		t.Errorf("Model = %q, want empty for a model-less deterministic persona", f.Envelope.Model)
 	}
 }
+
+func TestStampEnvelopeCarriesModelAuthored(t *testing.T) {
+	rp := &persona.ResolvedPersona{Definition: persona.Definition{ID: "config-guard", Kind: persona.KindDeterministic}}
+
+	judged := stampEnvelope(schema.Payload{Title: "t", ModelAuthored: true}, 1, rp, config.Defaults(), "abc123")
+	fact := stampEnvelope(schema.Payload{Title: "t"}, 2, rp, config.Defaults(), "abc123")
+
+	if !judged.Envelope.ModelAuthored {
+		t.Errorf("model-judged payload lost its marker in the envelope")
+	}
+	if fact.Envelope.ModelAuthored {
+		t.Errorf("deterministic fact was marked model-authored")
+	}
+}

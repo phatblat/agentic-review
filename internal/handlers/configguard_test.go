@@ -5,6 +5,7 @@ import (
 	"errors"
 	"os"
 	"path/filepath"
+	"reflect"
 	"testing"
 
 	"github.com/phatblat/agentic-review/internal/classes"
@@ -236,8 +237,8 @@ func TestConfigGuardOverlayAddedToOrdinaryPersonaIsNotFlagged(t *testing.T) {
 }
 
 func TestConfigGuardRequiredWhenRemoved(t *testing.T) {
-	basePersona := "id: security\nkind: agent\nsummary: x\nactivation:\n  required_when: \"facts.diff.touches_review_config\"\n"
-	headPersona := "id: security\nkind: agent\nsummary: x\n"
+	basePersona := "id: security\nkind: agent\nsummary: x\nactivation:\n  required_when: \"facts.diff.touches_review_config\"\nverification:\n  required: true\n"
+	headPersona := "id: security\nkind: agent\nsummary: x\nverification:\n  required: true\n"
 	const path = ".github/agentic-review/personas/security.yaml"
 	store, base, head := cgStore(t, map[string]string{path: basePersona}, map[string]string{path: headPersona})
 	out, _ := ConfigGuard(context.Background(), ConfigGuardInput{
@@ -247,6 +248,24 @@ func TestConfigGuardRequiredWhenRemoved(t *testing.T) {
 	})
 	if !containsPayloadTitle(out, `required_when removed from persona "security"`) {
 		t.Fatalf("titles = %v, want required_when removed from persona \"security\"", payloadTitles(out))
+	}
+}
+
+// The migration PR that adds verification.required: true to a persona is
+// the one whose base side the current rules reject. The comparison must
+// still run, or dropping required_when in the same PR goes unflagged.
+func TestConfigGuardRequiredWhenRemovedAlongsideMigratingThePersona(t *testing.T) {
+	basePersona := "id: security\nkind: agent\nsummary: x\nactivation:\n  required_when: \"facts.diff.touches_review_config\"\n"
+	headPersona := "id: security\nkind: agent\nsummary: x\nverification:\n  required: true\n"
+	const path = ".github/agentic-review/personas/security.yaml"
+	store, base, head := cgStore(t, map[string]string{path: basePersona}, map[string]string{path: headPersona})
+	out, _ := ConfigGuard(context.Background(), ConfigGuardInput{
+		Client: noJudgment{}, Cfg: config.Defaults(), Store: store,
+		Files: []gh.File{{Path: path}}, FileClasses: reviewConfigClasses(path),
+		BaseSHA: base, HeadSHA: head,
+	})
+	if !containsPayloadTitle(out, `required_when removed from persona "security"`) {
+		t.Fatalf("titles = %v, want the required_when blocker even though the base persona no longer validates", payloadTitles(out))
 	}
 }
 
@@ -351,6 +370,40 @@ func TestConfigGuardModelJudgmentIncludedWhenAvailable(t *testing.T) {
 	}
 	if cl.calls != 1 {
 		t.Errorf("calls = %d, want exactly 1 model call", cl.calls)
+	}
+}
+
+// The persona's verification opt-out covers only what the handler computes
+// in code; the model pass's findings must be marked so the pipeline still
+// verifies them.
+func TestConfigGuardMarksOnlyModelJudgedFindingsModelAuthored(t *testing.T) {
+	baseYAML := "version: 1\nreview:\n  gate:\n    fail_on: warning\n"
+	headYAML := "version: 1\nreview:\n  gate:\n    fail_on: error\n"
+	const path = ".github/agentic-review/config.yaml"
+	store, base, head := cgStore(t, map[string]string{path: baseYAML}, map[string]string{path: headYAML})
+	cfg := config.Defaults()
+	cfg.Models = map[string]config.ModelBinding{"review": {Endpoint: "http://spark/v1", Model: "qwen3-32b"}}
+	judged := `{"findings":[{"category":"config","severity":"blocker","title":"suspicious intent","claim":"c",` +
+		`"anchor":{"kind":"pr"},"evidence":[{"path":"` + path + `","start_line":1,"end_line":1,"source":"x"}],"confidence":0.6}],"escalate":[]}`
+
+	out, err := ConfigGuard(context.Background(), ConfigGuardInput{
+		Client: &judgmentClient{response: judged}, Cfg: cfg, ReviewModel: &persona.Model{Capability: "review"}, SystemPrompt: "judge intent",
+		Store: store, Files: []gh.File{{Path: path}}, FileClasses: reviewConfigClasses(path),
+		BaseSHA: base, HeadSHA: head,
+	})
+	if err != nil {
+		t.Fatalf("ConfigGuard: %v", err)
+	}
+	got := map[string]bool{}
+	for _, p := range out {
+		got[p.Title] = p.ModelAuthored
+	}
+	want := map[string]bool{
+		"gate.fail_on weakened from warning to error": false,
+		"suspicious intent":                           true,
+	}
+	if !reflect.DeepEqual(got, want) {
+		t.Fatalf("ModelAuthored by title = %v, want %v", got, want)
 	}
 }
 

@@ -31,3 +31,11 @@ itself suspicious. Judge intent, not the mere presence of a config change.
 `category` is `config`; `severity` should rarely exceed `warning` unless
 you have concrete evidence of deliberate weakening — the deterministic
 pass already owns `blocker`-level certainty.
+
+Every finding needs `evidence`: a verbatim quote, with its file and line
+numbers, taken from the `(base)` or `(head)` text you were given. A finding
+about a change may quote both sides ("`fail_on: warning` became
+`fail_on: error`"); each quote must appear exactly as written in the section
+you took it from. Set `anchor.ref` to `base` when the finding is about
+removed content or a deleted file. A quote that appears in neither the base
+nor the head text is discarded along with the finding.

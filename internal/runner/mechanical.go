@@ -29,7 +29,9 @@ func mechanicalValidate(ctx context.Context, findings []schema.Finding, store *g
 	dropped := make([]schema.Finding, 0)
 
 	for _, f := range findings {
-		if f.Envelope.PersonaKind == string(persona.KindAgent) {
+		// Deterministic personas' own facts have nothing to byte-match, but
+		// config-guard's model pass emits findings/v1 evidence like any agent.
+		if f.Envelope.PersonaKind == string(persona.KindAgent) || f.Envelope.ModelAuthored {
 			grounded, reason, ok := groundEvidence(ctx, f, store, headSHA, baseSHA)
 			if !ok {
 				f.Envelope.Verification.Disposition = schema.DispositionDropped
@@ -56,6 +58,14 @@ func mechanicalValidate(ctx context.Context, findings []schema.Finding, store *g
 // and returns the entries with their line numbers corrected to where the
 // quoted text actually is.
 //
+// A ModelAuthored finding (config-guard's judgment pass) is shown both the
+// base and head text of each config file, and "X changed from A to B" quotes
+// both, but a finding carries a single anchor.ref. Each of its entries is
+// therefore tried against the anchor's side first and then the other side;
+// the quote must still appear verbatim in one of the two real files, which
+// is all that grounding defends. If neither side matches, the failure
+// reports the anchor's side.
+//
 // The invariant worth defending is that the quoted code exists in the
 // file: that is what separates a checkable finding from an invented one.
 // Exact agreement between the quote and the line numbers cited alongside
@@ -72,39 +82,66 @@ func mechanicalValidate(ctx context.Context, findings []schema.Finding, store *g
 // indentation is exactly what a model reflowing a quote loses first, and
 // it carries no evidentiary weight.
 func groundEvidence(ctx context.Context, f schema.Finding, store *gh.ContentStore, headSHA, baseSHA string) ([]schema.Evidence, string, bool) {
-	ref := headSHA
-	refName := "head"
+	head := evidenceSide{sha: headSHA, name: "head"}
+	base := evidenceSide{sha: baseSHA, name: "base"}
+	sides := []evidenceSide{head, base}
 	if f.Payload.Anchor.Ref == schema.RefBase {
-		ref = baseSHA
-		refName = "base"
+		sides = []evidenceSide{base, head}
+	}
+	if !f.Envelope.ModelAuthored {
+		sides = sides[:1]
 	}
 
 	out := make([]schema.Evidence, len(f.Payload.Evidence))
 	copy(out, f.Payload.Evidence)
 	for i := range out {
-		e := &out[i]
-		content, err := store.Get(ctx, e.Path, ref)
-		if err != nil {
-			return nil, fmt.Sprintf("evidence[%d] cites %s, unreadable at %s: %v", i, e.Path, refName, err), false
+		var firstReason string
+		grounded := false
+		for n, side := range sides {
+			reason, ok := groundEntry(ctx, f.Envelope.Persona, i, &out[i], store, side)
+			if ok {
+				grounded = true
+				break
+			}
+			if n == 0 {
+				firstReason = reason
+			}
 		}
-		quote := normalizeQuote(strings.Split(e.Source, "\n"))
-		if len(quote) == 0 {
-			return nil, fmt.Sprintf("evidence[%d] cites %s:%d-%d with an empty quote", i, e.Path, e.StartLine, e.EndLine), false
+		if !grounded {
+			return nil, firstReason, false
 		}
-		file := trimEachLine(strings.Split(string(content), "\n"))
-
-		start, ok := locateQuote(file, quote, e.StartLine)
-		if !ok {
-			return nil, fmt.Sprintf("evidence[%d] quote does not appear anywhere in %s at %s", i, e.Path, refName), false
-		}
-		if start != e.StartLine {
-			logx.Warn("runner: %s: evidence[%d] cited %s:%d-%d but the quote is at %d-%d; correcting",
-				f.Envelope.Persona, i, e.Path, e.StartLine, e.EndLine, start, start+len(quote)-1)
-		}
-		e.StartLine = start
-		e.EndLine = start + len(quote) - 1
 	}
 	return out, "", true
+}
+
+// evidenceSide is one commit a quote can be checked against.
+type evidenceSide struct{ sha, name string }
+
+// groundEntry byte-matches one evidence entry against the file at side,
+// correcting e's line numbers on success. On failure it returns the reason
+// and leaves e untouched.
+func groundEntry(ctx context.Context, personaID string, i int, e *schema.Evidence, store *gh.ContentStore, side evidenceSide) (string, bool) {
+	content, err := store.Get(ctx, e.Path, side.sha)
+	if err != nil {
+		return fmt.Sprintf("evidence[%d] cites %s, unreadable at %s: %v", i, e.Path, side.name, err), false
+	}
+	quote := normalizeQuote(strings.Split(e.Source, "\n"))
+	if len(quote) == 0 {
+		return fmt.Sprintf("evidence[%d] cites %s:%d-%d with an empty quote", i, e.Path, e.StartLine, e.EndLine), false
+	}
+	file := trimEachLine(strings.Split(string(content), "\n"))
+
+	start, ok := locateQuote(file, quote, e.StartLine)
+	if !ok {
+		return fmt.Sprintf("evidence[%d] quote does not appear anywhere in %s at %s", i, e.Path, side.name), false
+	}
+	if start != e.StartLine {
+		logx.Warn("runner: %s: evidence[%d] cited %s:%d-%d but the quote is at %d-%d; correcting",
+			personaID, i, e.Path, e.StartLine, e.EndLine, start, start+len(quote)-1)
+	}
+	e.StartLine = start
+	e.EndLine = start + len(quote) - 1
+	return "", true
 }
 
 // locateQuote returns the 1-based line where quote begins in file,

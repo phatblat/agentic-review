@@ -58,6 +58,94 @@ func TestMechanicalValidateEvidenceByteMatchSurvives(t *testing.T) {
 	}
 }
 
+// config-guard's model pass emits findings/v1 evidence under a
+// deterministic persona; it gets the same byte-match as an agent's, while
+// the persona's code-computed facts (no evidence) are left alone.
+func TestMechanicalValidateChecksEvidenceOfModelAuthoredDeterministicFindings(t *testing.T) {
+	store := mechTestStore(t, map[string]string{"f.go": "line1\nline2\nline3\n"})
+	judged := agentFinding("f.go", 2, 2, "invented quote")
+	judged.Envelope.PersonaKind = string(persona.KindDeterministic)
+	judged.Envelope.ModelAuthored = true
+	fact := schema.Finding{
+		Payload:  schema.Payload{Category: "config", Severity: "blocker", Title: "t", Claim: "c", Anchor: schema.Anchor{Kind: schema.AnchorFile, Path: "f.go"}},
+		Envelope: schema.Envelope{ID: "fact", PersonaKind: string(persona.KindDeterministic)},
+	}
+	judged.Envelope.ID = "judged"
+
+	out := mechanicalValidate(context.Background(), []schema.Finding{judged, fact}, store, nil, map[string]bool{"f.go": true}, "headsha", "basesha", 50)
+
+	got := map[string]schema.Disposition{}
+	for _, f := range out {
+		got[f.Envelope.ID] = f.Envelope.Verification.Disposition
+	}
+	if got["judged"] != schema.DispositionDropped {
+		t.Errorf("judged disposition = %q, want dropped: its evidence does not match the file", got["judged"])
+	}
+	if got["fact"] == schema.DispositionDropped {
+		t.Errorf("fact was dropped, want a no-evidence deterministic fact left alone")
+	}
+}
+
+// config-guard's model pass is shown both sides of each config file and is
+// asked for a single anchor.ref, but its findings naturally quote removed
+// and added text together ("X changed from A to B") or quote a deleted file.
+// Each evidence entry of a ModelAuthored finding is grounded against the
+// anchor's side first, then the other; the quote must still exist verbatim
+// in one real file.
+func TestMechanicalValidateModelAuthoredEvidenceMayComeFromEitherSide(t *testing.T) {
+	dir := t.TempDir()
+	mustWrite(t, filepath.Join(dir, "pr.json"), `{"number":1,"head_sha":"headsha","base_sha":"basesha"}`)
+	mustWrite(t, filepath.Join(dir, "base", "deleted.yaml"), "id: security\nrequired_when: x\n")
+	mustWrite(t, filepath.Join(dir, "base", "c.yaml"), "gate:\n  fail_on: warning\n")
+	mustWrite(t, filepath.Join(dir, "head", "c.yaml"), "gate:\n  fail_on: error\n")
+	fake, err := gh.LoadFake(dir)
+	if err != nil {
+		t.Fatalf("LoadFake: %v", err)
+	}
+	store := gh.NewContentStore(fake, gh.Repo{Owner: "acme", Name: "demo"})
+
+	finding := func(id string, kind persona.Kind, modelAuthored bool, ref schema.AnchorRef, ev ...schema.Evidence) schema.Finding {
+		return schema.Finding{
+			Payload: schema.Payload{
+				Category: "config", Severity: "warning", Title: "t", Claim: "c",
+				Anchor:   schema.Anchor{Kind: schema.AnchorFile, Path: ev[0].Path, Ref: ref},
+				Evidence: ev,
+			},
+			Envelope: schema.Envelope{ID: id, PersonaKind: string(kind), ModelAuthored: modelAuthored},
+		}
+	}
+	oldQuote := schema.Evidence{Path: "c.yaml", StartLine: 2, EndLine: 2, Source: "fail_on: warning"}
+	newQuote := schema.Evidence{Path: "c.yaml", StartLine: 2, EndLine: 2, Source: "fail_on: error"}
+	deleted := schema.Evidence{Path: "deleted.yaml", StartLine: 2, EndLine: 2, Source: "required_when: x"}
+	invented := schema.Evidence{Path: "c.yaml", StartLine: 2, EndLine: 2, Source: "fail_on: never"}
+
+	det := persona.KindDeterministic
+	out := mechanicalValidate(context.Background(), []schema.Finding{
+		finding("deleted-default-ref", det, true, "", deleted),
+		finding("two-sided-head-anchor", det, true, schema.RefHead, oldQuote, newQuote),
+		finding("two-sided-base-anchor", det, true, schema.RefBase, newQuote, oldQuote),
+		finding("in-neither-side", det, true, schema.RefBase, oldQuote, invented),
+		finding("agent-no-fallback", persona.KindAgent, false, "", deleted),
+	}, store, nil, map[string]bool{"c.yaml": true, "deleted.yaml": true}, "headsha", "basesha", 50)
+
+	got := map[string]schema.Disposition{}
+	for _, f := range out {
+		got[f.Envelope.ID] = f.Envelope.Verification.Disposition
+	}
+	want := map[string]bool{ // true = dropped
+		"deleted-default-ref":   false,
+		"two-sided-head-anchor": false,
+		"two-sided-base-anchor": false,
+		"in-neither-side":       true,
+		"agent-no-fallback":     true, // agents get no second side
+	}
+	for id, dropped := range want {
+		if isDropped := got[id] == schema.DispositionDropped; isDropped != dropped {
+			t.Errorf("%s: dropped = %v, want %v (disposition %q)", id, isDropped, dropped, got[id])
+		}
+	}
+}
+
 func TestMechanicalValidateEvidenceMismatchDrops(t *testing.T) {
 	store := mechTestStore(t, map[string]string{"f.go": "line1\nline2\nline3\n"})
 	f := agentFinding("f.go", 2, 2, "not what is actually there")

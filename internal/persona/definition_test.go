@@ -55,6 +55,22 @@ summary: x
 	}
 }
 
+// An omitted verification block decodes to required: false, which would
+// silently opt an agent persona out of every verifier lens.
+func TestParseDefinitionAgentMustRequireVerification(t *testing.T) {
+	for name, tail := range map[string]string{
+		"omitted":        "",
+		"explicit false": "verification:\n  required: false\n",
+	} {
+		t.Run(name, func(t *testing.T) {
+			yaml := "id: custom\nkind: agent\nsummary: x\n" + tail
+			if _, err := ParseDefinition("custom.yaml", []byte(yaml)); err == nil {
+				t.Fatalf("ParseDefinition accepted an agent persona with verification.required unset or false")
+			}
+		})
+	}
+}
+
 func TestParseDefinitionRejectsBadKind(t *testing.T) {
 	yaml := `
 id: foo

@@ -180,15 +180,33 @@ func tryEscalate(reg persona.Registry, team *[]*candidate, teamSet map[string]bo
 	logx.Warn("escalation: added %s (%s)", id, reason)
 }
 
+// allLenses is every lens verify.Run applies, in no particular order.
+var allLenses = []persona.Lens{
+	persona.LensGroundedness, persona.LensInjection, persona.LensDuplication, persona.LensMateriality,
+}
+
 // computeVerifierLenses unions verification.lenses across team members
 // with verification.required: true, plus injection unconditionally on
 // fork PRs when the team has any agent member (spec §12.3).
+//
+// A deterministic persona with a model binding (config-guard) may emit
+// model-authored findings (spec §7), which verify.Run puts through every
+// lens whatever its verification block says, so it contributes all of them
+// and counts as an agent for the fork injection rule. Without this, a
+// config-guard-only team would report no verifier lenses while still
+// running four.
 func computeVerifierLenses(team []*candidate, f *facts.Facts) []string {
 	lensSet := map[string]bool{}
 	hasAgent := false
 	for _, c := range team {
 		if c.rp.Kind == persona.KindAgent {
 			hasAgent = true
+		}
+		if c.rp.Kind == persona.KindDeterministic && c.rp.Model != nil {
+			hasAgent = true
+			for _, l := range allLenses {
+				lensSet[string(l)] = true
+			}
 		}
 		if c.rp.Verification.Required {
 			for _, l := range c.rp.Verification.Lenses {
