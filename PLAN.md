@@ -115,7 +115,7 @@ Then confirm in the real repo: `git status --porcelain` shows only ` M justfile`
 **Files:**
 - Modify: `docs/setup.md` (§5 "Releasing (optional)", step 1, currently lines 294-295)
 
-- [ ] **Step 1: Edit step 1 of the list**
+- [x] **Step 1: Edit step 1 of the list**
 
 Current text:
 
@@ -135,11 +135,11 @@ Replace with:
 
 Leave steps 2 and 3 untouched.
 
-- [ ] **Step 2: Confirm the rendered section**
+- [x] **Step 2: Confirm the rendered section**
 
 Run: `git diff -- docs/setup.md`
 Expected: only the step-1 lines changed.
 
 ## Status
 
-Task 1 built and checked (`just lint`, `just test`, scratch-repo verification of all abort paths and a successful tag push).
+Task 2 built and checked (`just check` passes; docs/setup.md diff limited to §5 step 1).
