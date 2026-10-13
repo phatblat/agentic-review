@@ -300,7 +300,7 @@ rm -rf "$tmp"
 - Modify: `justfile` (new `snapshot` recipe immediately after `smoke`)
 - Modify: `AGENTS.md:106`, `AGENTS.md` command block, `AGENTS.md` Important Files list
 
-- [ ] **Step 1: Pin GoReleaser**
+- [x] **Step 1: Pin GoReleaser**
 
 Add to `.mise.toml` under `[tools]`, after `golangci-lint = "2"`:
 
@@ -311,7 +311,7 @@ goreleaser = "2.18.3"
 Run: `mise install goreleaser && goreleaser --version`
 Expected: reports `2.18.3`
 
-- [ ] **Step 2: Create `.goreleaser.yaml`**
+- [x] **Step 2: Create `.goreleaser.yaml`**
 
 ```yaml
 # Release build for agentic-review (docs/decisions/
@@ -357,7 +357,7 @@ changelog:
 Run: `goreleaser check`
 Expected: `1 configuration file(s) validated`, exit 0, no deprecation warnings
 
-- [ ] **Step 3: Add the snapshot recipe**
+- [x] **Step 3: Add the snapshot recipe**
 
 Insert into `justfile` immediately after the `smoke` recipe (after its `@echo "smoke: OK"` line and blank line):
 
@@ -370,17 +370,17 @@ snapshot:
 
 ```
 
-- [ ] **Step 4: Verify builds and release asset names (throwaway checks)**
+- [x] **Step 4: Verify builds and release asset names (throwaway checks)**
 
 Run: `just snapshot`
 Expected: exit 0; three binaries under `dist/` (`find dist -name agentic-review -type f` lists three)
 
-Run: `goreleaser release --snapshot --clean && ls dist && cat dist/checksums.txt && ./dist/agentic-review-darwin-arm64 version` (snapshot mode skips publishing; if it fails in the changelog step for lack of a GitHub token, rerun prefixed with `GITHUB_TOKEN="$(gh auth token)"`)
-Expected: `dist/` contains `agentic-review-linux-amd64`, `agentic-review-linux-arm64`, `agentic-review-darwin-arm64`, and `checksums.txt`; `checksums.txt` lists exactly those three names; the darwin binary prints `v0.1.0`
+Run: `goreleaser release --snapshot --clean && cat dist/checksums.txt && ./dist/agentic-review_darwin_arm64_v8.0/agentic-review version` (snapshot mode skips publishing; if it fails in the changelog step for lack of a GitHub token, rerun prefixed with `GITHUB_TOKEN="$(gh auth token)"`)
+Expected: `checksums.txt` lists exactly `agentic-review-darwin-arm64`, `agentic-review-linux-amd64`, `agentic-review-linux-arm64` (with `formats: [binary]` the renamed assets exist as artifact names in `dist/artifacts.json`, pointing at the per-target `dist/agentic-review_<target>/agentic-review` builds); the darwin binary prints `v0.1.0`
 
 Run: `rm -rf dist`
 
-- [ ] **Step 5: Document it**
+- [x] **Step 5: Document it**
 
 Replace `AGENTS.md` line 106's parenthetical `(go 1.26.6, node 24, just, golangci-lint 2)` with `(go 1.26.6, node 24, just, golangci-lint 2, goreleaser 2.18.3)`, keeping the rest of the sentence.
 
@@ -403,6 +403,7 @@ In `AGENTS.md`'s Important Files list, insert immediately after the `action.yml`
 **Files:**
 
 - Modify: `.github/workflows/release.yml` (whole file)
+- Create: `.github/actionlint.yaml`
 - Modify: `.github/workflows/ci.yml:24-45` (`build` job)
 - Modify: `AGENTS.md:129-132`
 - Modify: `docs/setup.md:294-297`
@@ -490,7 +491,19 @@ Replace `docs/setup.md` lines 294-297 (step 1 of section 5) with:
    `checksums.txt`.
 ```
 
-- [ ] **Step 4: Verify**
+- [ ] **Step 4: Declare the ARC runner label for actionlint**
+
+actionlint rejects the self-hosted label `arc-ubuntu-24.04-arm64` as unknown (already the case on BASE in `evals.yml` and `release.yml`). Create `.github/actionlint.yaml`:
+
+```yaml
+# Self-hosted runner labels actionlint cannot know about: the ARC scale set
+# the workflows run on (fork PRs route to GitHub-hosted runners instead).
+self-hosted-runner:
+  labels:
+    - arc-ubuntu-24.04-arm64
+```
+
+- [ ] **Step 5: Verify**
 
 Run: `actionlint`
 Expected: no output, exit 0
@@ -503,4 +516,4 @@ Expected: all pass
 
 ## Status
 
-Task 3 built and checked on macOS (BSD sed/grep); GNU sed/grep not exercised locally. Follow-up for the builder: `just --list` shows only a recipe's last comment line, so `version`'s (and the planned `snapshot`'s) one-line summary must be the comment line directly above the recipe, matching `release`. Note: `go test -ldflags '-X main.version=…'` does not reach the package under test; release `go build` of the main package is unaffected.
+Task 4 built and checked; Task 3's `version` recipe and the new `snapshot` recipe now put their one-line summary directly above the recipe. Task 5 gained a step adding `.github/actionlint.yaml` (human decision): repo-wide `actionlint` flagged the custom ARC runner label in unmodified `evals.yml` and `release.yml`. GNU sed/grep not exercised locally. Note: `go test -ldflags '-X main.version=…'` does not reach the package under test; release `go build` of the main package is unaffected.
