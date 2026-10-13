@@ -3,7 +3,7 @@ set shell := ["bash", "-euo", "pipefail", "-c"]
 @_default:
     just --list
 
-# Install pinned toolchain (go, node, just, golangci-lint via mise) and
+# Install pinned toolchain (go, node, just, golangci-lint, goreleaser via mise) and
 # download Go module dependencies. Run this once per clone/CI runner
 # before build/test/lint.
 deps:
@@ -60,9 +60,8 @@ smoke:
     rm -f /tmp/agentic-review-shim-smoke
     @echo "smoke: OK"
 
-# Cross-compile every release platform from .goreleaser.yaml into dist/
-# without publishing; ci.yml's build job runs this. Needs goreleaser from
-# `just deps`.
+# ci.yml's build job runs this; platforms and flags come from .goreleaser.yaml.
+# Needs goreleaser from `just deps`.
 # Cross-compile every release platform into dist/ without publishing.
 snapshot:
     goreleaser build --snapshot --clean
