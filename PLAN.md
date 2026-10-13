@@ -112,7 +112,7 @@ Expected: `version $new=""` still shows `# Print the app version, or set it ever
 - Modify: `.github/workflows/release.yml:31`
 - Modify: `.mise.toml:6`
 
-- [ ] **Step 1: `deps` lists goreleaser**
+- [x] **Step 1: `deps` lists goreleaser**
 
 Replace `justfile` line 6:
 
@@ -126,7 +126,7 @@ with:
 # Install pinned toolchain (go, node, just, golangci-lint, goreleaser via mise) and
 ```
 
-- [ ] **Step 2: `snapshot` comment stops repeating its summary**
+- [x] **Step 2: `snapshot` comment stops repeating its summary**
 
 Replace `justfile` lines 63-66 (the four comment lines above `snapshot:`) with:
 
@@ -136,7 +136,7 @@ Replace `justfile` lines 63-66 (the four comment lines above `snapshot:`) with:
 # Cross-compile every release platform into dist/ without publishing.
 ```
 
-- [ ] **Step 3: CI comment matches what `goreleaser build` checks**
+- [x] **Step 3: CI comment matches what `goreleaser build` checks**
 
 Replace `.github/workflows/ci.yml` lines 35-36 with:
 
@@ -147,7 +147,7 @@ Replace `.github/workflows/ci.yml` lines 35-36 with:
       # by `goreleaser release` on a tag.
 ```
 
-- [ ] **Step 4: Tie the two GoReleaser version pins together**
+- [x] **Step 4: Tie the two GoReleaser version pins together**
 
 Replace `.github/workflows/release.yml` line 31 with:
 
@@ -161,7 +161,7 @@ Replace `.mise.toml` line 6 with:
 goreleaser = "2.18.3" # keep equal to release.yml's goreleaser-action `version:`
 ```
 
-- [ ] **Step 5: Verify**
+- [x] **Step 5: Verify**
 
 Run: `just --list`
 Expected: `deps`, `snapshot`, and `version` summaries unchanged (`snapshot  # Cross-compile every release platform into dist/ without publishing.`)
@@ -177,4 +177,4 @@ Expected: all pass, no `dist/` left
 
 ## Status
 
-Task 1 built and checked: `just version` now fails unless `docs/setup.md` has exactly two `ref: vX.Y.Z` pins (third pin and SHA pin both rejected before any write).
+Task 2 built and checked; both tasks done. Task 1: `just version` fails unless `docs/setup.md` has exactly two `ref: vX.Y.Z` pins. Task 2: comment-only fixes (deps tool list, snapshot comment, ci.yml snapshot scope, GoReleaser pin cross-references).
