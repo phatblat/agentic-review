@@ -98,7 +98,7 @@ Expected: prints `v0.1.0`
 - Modify: `docs/setup.md:182-186`, `docs/setup.md:222-227`, `docs/setup.md:267-272`
 - Modify: `shim/index.mjs:24-36` (comments only)
 
-- [ ] **Step 1: `just smoke` builds plainly**
+- [x] **Step 1: `just smoke` builds plainly**
 
 Replace `justfile` line 57 with:
 
@@ -106,7 +106,7 @@ Replace `justfile` line 57 with:
     go build -o /tmp/agentic-review-shim-smoke ./cmd/agentic-review
 ```
 
-- [ ] **Step 2: dogfood builds plainly**
+- [x] **Step 2: dogfood builds plainly**
 
 Replace `.github/workflows/dogfood.yml` lines 29-38 (the comment block and the `run: |` step with `sed` and `go build -ldflags`) with:
 
@@ -119,7 +119,7 @@ Replace `.github/workflows/dogfood.yml` lines 29-38 (the comment block and the `
       - run: go build -o "${RUNNER_TEMP}/agentic-review-bin" ./cmd/agentic-review
 ```
 
-- [ ] **Step 3: Consumer workflow builds plainly**
+- [x] **Step 3: Consumer workflow builds plainly**
 
 Replace `docs/setup.md` lines 182-186 (the paragraph starting "Because the shim version-checks") with:
 
@@ -139,7 +139,7 @@ Replace each of the two `Build agentic-review` steps (lines 222-227 in `review`,
         run: go build -o "${RUNNER_TEMP}/agentic-review-bin" ./cmd/agentic-review
 ```
 
-- [ ] **Step 4: Shim comments are version-agnostic and accurate**
+- [x] **Step 4: Shim comments are version-agnostic and accurate**
 
 Replace `shim/index.mjs` lines 24-36 (the `EXPECTED_VERSION` comment, the `export const EXPECTED_VERSION` line, and the `CHECKSUMS` comment; keep `export const CHECKSUMS = {` and its body) with:
 
@@ -158,7 +158,7 @@ export const EXPECTED_VERSION = "v0.1.0";
 // verification.
 ```
 
-- [ ] **Step 5: Verify**
+- [x] **Step 5: Verify**
 
 Run: `just smoke`
 Expected: ends with `smoke: OK`
@@ -503,4 +503,4 @@ Expected: all pass
 
 ## Status
 
-Task 1 built and checked. Note: `go test -ldflags '-X main.version=…'` does not reach the package under test (it links as `github.com/phatblat/agentic-review/cmd/agentic-review`); release `go build` of the main package is unaffected.
+Task 2 built and checked (first check flagged the intended `main.go` comment via a broader grep than the plan's; re-run with the plan's grep passed). Note: `go test -ldflags '-X main.version=…'` does not reach the package under test (it links as `github.com/phatblat/agentic-review/cmd/agentic-review`); release `go build` of the main package is unaffected.
