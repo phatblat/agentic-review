@@ -179,11 +179,11 @@ GitHub Release download. **The release rung is inert until a `v*` tag exists
 and its checksums are committed into `shim/index.mjs`**, so build from source
 and hand the shim the result via `$AGENTIC_REVIEW_BIN`.
 
-Because the shim version-checks that binary against its own
-`EXPECTED_VERSION`, the build stamps the value read out of the checked-out
-shim — the two can never drift. Checking the action out locally and using
-`uses: ./agentic-review` also guarantees the action and the binary come from
-one ref.
+The shim version-checks that binary against its own `EXPECTED_VERSION`, and
+`cmd/agentic-review/main.go` carries the same version literal (the action's
+own test suite fails if they drift), so a plain `go build` passes. Checking
+the action out locally and using `uses: ./agentic-review` also guarantees the
+action and the binary come from one ref.
 
 ```yaml
 name: Agentic Review
@@ -221,10 +221,7 @@ jobs:
 
       - name: Build agentic-review
         working-directory: agentic-review
-        run: |
-          version=$(sed -n 's/^export const EXPECTED_VERSION = "\(.*\)";$/\1/p' shim/index.mjs)
-          go build -ldflags "-X main.version=${version}" \
-            -o "${RUNNER_TEMP}/agentic-review-bin" ./cmd/agentic-review
+        run: go build -o "${RUNNER_TEMP}/agentic-review-bin" ./cmd/agentic-review
 
       - uses: ./agentic-review
         env:
@@ -266,10 +263,7 @@ jobs:
 
       - name: Build agentic-review
         working-directory: agentic-review
-        run: |
-          version=$(sed -n 's/^export const EXPECTED_VERSION = "\(.*\)";$/\1/p' shim/index.mjs)
-          go build -ldflags "-X main.version=${version}" \
-            -o "${RUNNER_TEMP}/agentic-review-bin" ./cmd/agentic-review
+        run: go build -o "${RUNNER_TEMP}/agentic-review-bin" ./cmd/agentic-review
 
       - uses: ./agentic-review
         env:
@@ -296,7 +290,8 @@ To replace the build-from-source pre-step with `uses: phatblat/agentic-review@vX
    `release.yml` cross-compiles linux/amd64, linux/arm64, and
    darwin/arm64, then publishes `checksums.txt`.
 2. Copy those checksums into `CHECKSUMS` in `shim/index.mjs`, keyed
-   `<os>-<arch>`, and set `EXPECTED_VERSION` to the *next* tag.
+   `<os>-<arch>`, and run `just version <next>` to move `EXPECTED_VERSION`,
+   the binary's version, and this guide's `ref:` pins to the *next* tag.
 3. Merge that change to `main`, then run `just release` again. That second
    tag is the first one whose download rung works — a release cannot contain
    the checksums of its own artifacts.

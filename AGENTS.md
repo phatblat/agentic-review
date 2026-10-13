@@ -121,6 +121,8 @@ just smoke          # CLI smoke (plan subcommand, no models) + shim smoke
                      # (shim/index.mjs with AGENTIC_REVIEW_DRY_RUN=1, no network)
 just live-smoke      # only runs if AGENTIC_REVIEW_ENDPOINT/AGENTIC_REVIEW_MODEL set;
                      # otherwise prints a notice and exits 0 — never fails CI
+just version        # print the app version (shim EXPECTED_VERSION); `just version X.Y.Z`
+                     # (leading v optional) writes vX.Y.Z to the shim, main.go, docs/setup.md
 just release        # tag the shim's EXPECTED_VERSION on clean, in-sync main, run just check,
                      # push the tag (triggers release.yml)
 just clean          # rm -rf agentic-review dist .agentic-review
