@@ -27,7 +27,7 @@
 
 - Modify: `justfile:87` (recipe header comment), `justfile:116-117` (pin count check)
 
-- [ ] **Step 1: State the pin contract in the header**
+- [x] **Step 1: State the pin contract in the header**
 
 Replace `justfile` line 87:
 
@@ -42,7 +42,7 @@ with:
 # phatblat/agentic-review ref: pins.
 ```
 
-- [ ] **Step 2: Require exactly two pins**
+- [x] **Step 2: Require exactly two pins**
 
 Replace `justfile` lines 116-117:
 
@@ -62,7 +62,7 @@ with:
 
 The post-write check (`[ "$got" -eq "$pins" ]`) stays as is.
 
-- [ ] **Step 3: Verify (throwaway checks, nothing kept)**
+- [x] **Step 3: Verify (throwaway checks, nothing kept)**
 
 Round trip still works and restores byte-for-byte:
 
@@ -177,4 +177,4 @@ Expected: all pass, no `dist/` left
 
 ## Status
 
-Not started.
+Task 1 built and checked: `just version` now fails unless `docs/setup.md` has exactly two `ref: vX.Y.Z` pins (third pin and SHA pin both rejected before any write).
