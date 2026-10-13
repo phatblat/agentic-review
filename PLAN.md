@@ -516,4 +516,16 @@ Expected: all pass
 
 ## Status
 
-Task 5 built and checked; all five tasks done. `.github/actionlint.yaml` added (human decision) so repo-wide `actionlint` is clean. Not exercised: the GitHub Actions workflows themselves (no tag pushed, no CI run), and the `version` recipe under GNU sed/grep. Note: `go test -ldflags '-X main.version=…'` does not reach the package under test; release `go build` of the main package is unaffected.
+Reviewed, awaiting Gate 2. No blockers. Remaining findings:
+
+- minor `.github/workflows/ci.yml:35` — comment claims a broken release config fails in CI, but `goreleaser build --snapshot` skips archive naming and `checksums.txt`; reword, or run `goreleaser release --snapshot` and assert the three asset names.
+- minor `justfile:117` — `just version` rewrites any indented `ref: vX.Y.Z` in `docs/setup.md` and only requires ≥1 match; require exactly the two `phatblat/agentic-review` pins.
+- minor `justfile:91` — no automated test for `just version` (write path, rejection, pattern miss); add a Go test that runs it in `t.TempDir()`, skipping without `just`.
+- minor `shim/index.mjs:31` — pre-existing: `docs/setup.md` §5 (copy vN checksums, bump to vN+1) can never enable the download rung; needs a follow-up Decision, and §5 step 3's claim should be qualified meanwhile.
+- minor `.github/workflows/release.yml:28` — new third-party `goreleaser/goreleaser-action` pinned by tag in the `contents: write` job; pin actions to commit SHAs.
+- minor `.mise.toml:4` — pre-existing floating `just = "latest"`, now on more CI paths; pin an exact version.
+- nit `justfile:63` — `snapshot` comment's first sentence repeats its summary line.
+- nit `justfile:6` — `deps` comment's tool list omits goreleaser.
+- nit `justfile:119` — `rewrite()` leaks its temp file on failure, and an I/O failure mid-run can leave earlier files rewritten.
+- nit `.github/workflows/release.yml:31` — GoReleaser `v2.18.3` pinned here and in `.mise.toml` with nothing linking them; add a keep-in-sync comment.
+- nit `.goreleaser.yaml:20` — release stamps any pushed `v*` tag without checking it equals `EXPECTED_VERSION`; add a pre-GoReleaser check step or tag protection.
