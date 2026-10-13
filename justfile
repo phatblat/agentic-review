@@ -60,6 +60,13 @@ smoke:
     rm -f /tmp/agentic-review-shim-smoke
     @echo "smoke: OK"
 
+# Cross-compile every release platform from .goreleaser.yaml into dist/
+# without publishing; ci.yml's build job runs this. Needs goreleaser from
+# `just deps`.
+# Cross-compile every release platform into dist/ without publishing.
+snapshot:
+    goreleaser build --snapshot --clean
+
 # Live smoke (Verification item 10) — only runs when a real inference
 # endpoint and model are configured; skips with a notice otherwise and
 # never fails the build for missing deployment settings.

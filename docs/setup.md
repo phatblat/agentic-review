@@ -287,8 +287,9 @@ To replace the build-from-source pre-step with `uses: phatblat/agentic-review@vX
 
 1. Run `just release` from a clean, up-to-date `main`. It tags the
    shim's `EXPECTED_VERSION`, runs `just check` first, and pushes the tag.
-   `release.yml` cross-compiles linux/amd64, linux/arm64, and
-   darwin/arm64, then publishes `checksums.txt`.
+   `release.yml` runs GoReleaser (`.goreleaser.yaml`), which cross-compiles
+   linux/amd64, linux/arm64, and darwin/arm64 and publishes them with
+   `checksums.txt`.
 2. Copy those checksums into `CHECKSUMS` in `shim/index.mjs`, keyed
    `<os>-<arch>`, and run `just version <next>` to move `EXPECTED_VERSION`,
    the binary's version, and this guide's `ref:` pins to the *next* tag.

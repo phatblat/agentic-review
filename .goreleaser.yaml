@@ -1,0 +1,38 @@
+# Release build for agentic-review (docs/decisions/
+# 2026-10-12-version-source-of-truth-and-goreleaser-builds.md).
+# release.yml runs `goreleaser release --clean` on v* tags; `just snapshot`
+# runs the same builds without publishing, locally and in ci.yml.
+version: 2
+
+project_name: agentic-review
+
+builds:
+  - id: agentic-review
+    main: ./cmd/agentic-review
+    binary: agentic-review
+    env:
+      - CGO_ENABLED=0
+    flags:
+      - -trimpath
+    # The tag the shim downloads by. `just release` only ever tags
+    # EXPECTED_VERSION, which main.go's version literal already equals.
+    ldflags:
+      - -X main.version={{ .Tag }}
+    targets:
+      - linux_amd64_v1
+      - linux_arm64
+      - darwin_arm64
+
+archives:
+  - id: binaries
+    formats:
+      - binary
+    # Asset names the shim's platformKey() and spec §13.1's bake snippet use.
+    name_template: "{{ .ProjectName }}-{{ .Os }}-{{ .Arch }}"
+
+checksum:
+  name_template: checksums.txt
+  algorithm: sha256
+
+changelog:
+  use: github-native

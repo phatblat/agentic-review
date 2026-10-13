@@ -26,21 +26,12 @@ jobs:
     needs: check
     # Same fork routing as check.
     runs-on: ${{ github.event_name == 'pull_request' && github.event.pull_request.head.repo.full_name != github.repository && 'ubuntu-24.04-arm' || 'arc-ubuntu-24.04-arm64' }}
-    strategy:
-      matrix:
-        include:
-          - goos: linux
-            goarch: amd64
-          - goos: linux
-            goarch: arm64
-          - goos: darwin
-            goarch: arm64
     steps:
       - uses: actions/checkout@v7.0.1
       - uses: actions/setup-go@v7.0.0
         with:
           go-version-file: go.mod
-      - env:
-          GOOS: ${{ matrix.goos }}
-          GOARCH: ${{ matrix.goarch }}
-        run: go build ./...
+      - uses: jdx/mise-action@v4.2.5
+      # Builds every release platform from .goreleaser.yaml without
+      # publishing, so a broken release config fails here, not at tag time.
+      - run: just snapshot
