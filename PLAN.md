@@ -408,7 +408,7 @@ In `AGENTS.md`'s Important Files list, insert immediately after the `action.yml`
 - Modify: `AGENTS.md:129-132`
 - Modify: `docs/setup.md:294-297`
 
-- [ ] **Step 1: Release via GoReleaser**
+- [x] **Step 1: Release via GoReleaser**
 
 Replace `.github/workflows/release.yml` with:
 
@@ -449,7 +449,7 @@ jobs:
           GITHUB_TOKEN: ${{ github.token }}
 ```
 
-- [ ] **Step 2: CI builds via the snapshot recipe**
+- [x] **Step 2: CI builds via the snapshot recipe**
 
 Replace the `build` job in `.github/workflows/ci.yml` (lines 24-45) with:
 
@@ -469,7 +469,7 @@ Replace the `build` job in `.github/workflows/ci.yml` (lines 24-45) with:
       - run: just snapshot
 ```
 
-- [ ] **Step 3: Document it**
+- [x] **Step 3: Document it**
 
 Replace `AGENTS.md` lines 129-132 (the paragraph starting "CI (`.github/workflows/ci.yml`)") with:
 
@@ -491,7 +491,7 @@ Replace `docs/setup.md` lines 294-297 (step 1 of section 5) with:
    `checksums.txt`.
 ```
 
-- [ ] **Step 4: Declare the ARC runner label for actionlint**
+- [x] **Step 4: Declare the ARC runner label for actionlint**
 
 actionlint rejects the self-hosted label `arc-ubuntu-24.04-arm64` as unknown (already the case on BASE in `evals.yml` and `release.yml`). Create `.github/actionlint.yaml`:
 
@@ -503,7 +503,7 @@ self-hosted-runner:
     - arc-ubuntu-24.04-arm64
 ```
 
-- [ ] **Step 5: Verify**
+- [x] **Step 5: Verify**
 
 Run: `actionlint`
 Expected: no output, exit 0
@@ -516,4 +516,4 @@ Expected: all pass
 
 ## Status
 
-Task 4 built and checked; Task 3's `version` recipe and the new `snapshot` recipe now put their one-line summary directly above the recipe. Task 5 gained a step adding `.github/actionlint.yaml` (human decision): repo-wide `actionlint` flagged the custom ARC runner label in unmodified `evals.yml` and `release.yml`. GNU sed/grep not exercised locally. Note: `go test -ldflags '-X main.version=…'` does not reach the package under test; release `go build` of the main package is unaffected.
+Task 5 built and checked; all five tasks done. `.github/actionlint.yaml` added (human decision) so repo-wide `actionlint` is clean. Not exercised: the GitHub Actions workflows themselves (no tag pushed, no CI run), and the `version` recipe under GNU sed/grep. Note: `go test -ldflags '-X main.version=…'` does not reach the package under test; release `go build` of the main package is unaffected.
