@@ -3,7 +3,7 @@ set shell := ["bash", "-euo", "pipefail", "-c"]
 @_default:
     just --list
 
-# Install pinned toolchain (go, node, just, golangci-lint via mise) and
+# Install pinned toolchain (go, node, just, golangci-lint, goreleaser via mise) and
 # download Go module dependencies. Run this once per clone/CI runner
 # before build/test/lint.
 deps:
@@ -54,11 +54,17 @@ validate:
 # network): both must be reproducible without a live inference endpoint.
 smoke:
     go run ./cmd/agentic-review plan --triage fixtures/cli-smoke/high-risk-auth/assessment.json --config fixtures/cli-smoke/high-risk-auth >/dev/null
-    go build -ldflags "-X main.version=v0.1.0" -o /tmp/agentic-review-shim-smoke ./cmd/agentic-review
+    go build -o /tmp/agentic-review-shim-smoke ./cmd/agentic-review
     AGENTIC_REVIEW_BIN=/tmp/agentic-review-shim-smoke GITHUB_EVENT_PATH="$(pwd)/fixtures/replay/security-token-expiry/event.json" GITHUB_EVENT_NAME=pull_request AGENTIC_REVIEW_DRY_RUN=1 node shim/index.mjs >/dev/null
     out=$(AGENTIC_REVIEW_BIN=/bin/true GITHUB_EVENT_PATH="$(pwd)/fixtures/replay/security-token-expiry/event.json" GITHUB_EVENT_NAME=pull_request AGENTIC_REVIEW_DRY_RUN=1 node shim/index.mjs 2>&1 || true); echo "$out" | grep -q "falling through"
     rm -f /tmp/agentic-review-shim-smoke
     @echo "smoke: OK"
+
+# ci.yml's build job runs this; platforms and flags come from .goreleaser.yaml.
+# Needs goreleaser from `just deps`.
+# Cross-compile every release platform into dist/ without publishing.
+snapshot:
+    goreleaser build --snapshot --clean
 
 # Live smoke (Verification item 10) — only runs when a real inference
 # endpoint and model are configured; skips with a notice otherwise and
@@ -74,6 +80,65 @@ live-smoke:
     go run ./cmd/agentic-review triage --diff fixtures/diffs/auth-token.diff --record /tmp/agentic-review-live-smoke-rec
     test -n "$(find /tmp/agentic-review-live-smoke-rec/triage -type f 2>/dev/null)"
     echo "live-smoke: OK"
+
+# `just version` prints shim/index.mjs's EXPECTED_VERSION; `just version 1.2.3`
+# (a leading v is optional) writes v1.2.3 to EXPECTED_VERSION,
+# cmd/agentic-review/main.go's version, and docs/setup.md's two
+# phatblat/agentic-review ref: pins.
+# Checks every pattern before writing and every value after; never commits,
+# tags, or pushes.
+# Print the app version, or set it everywhere it is written.
+version $new="":
+    #!/usr/bin/env bash
+    set -euo pipefail
+    fail() { echo "version: $*" >&2; exit 1; }
+    shim=shim/index.mjs
+    main=cmd/agentic-review/main.go
+    docs=docs/setup.md
+    for f in "$shim" "$main" "$docs"; do
+        [ -f "$f" ] || fail "$f not found (run from the repo root)"
+    done
+    current=$(sed -n 's/^export const EXPECTED_VERSION = "\(.*\)";$/\1/p' "$shim")
+    [ -n "$current" ] || fail "no EXPECTED_VERSION line in $shim"
+    if [ -z "$new" ]; then
+        echo "$current"
+        exit 0
+    fi
+    v=${new#v}
+    [[ "$v" =~ ^[0-9]+\.[0-9]+\.[0-9]+$ ]] || fail "'$new' is not X.Y.Z (a leading v is optional)"
+    want="v$v"
+    shim_re='^export const EXPECTED_VERSION = "[^"]*";$'
+    main_re='^var version = "[^"]*"$'
+    # A pin is a `ref: vX.Y.Z` line directly under `repository: phatblat/agentic-review`;
+    # other repos' refs are never counted or rewritten.
+    repo_re='^ +repository: phatblat\/agentic-review[[:space:]]*$'
+    # agentic_pins VERSION_ERE: count docs/setup.md's agentic-review pins at that version.
+    agentic_pins() {
+        sed -nE "/$repo_re/{n;/^ +ref: $1([[:space:]]|\$)/p;}" "$docs" | grep -c . || true
+    }
+    # Check every pattern before writing anything, so a miss leaves no file half-bumped.
+    grep -qE "$shim_re" "$shim" || fail "no EXPECTED_VERSION line in $shim"
+    grep -qE "$main_re" "$main" || fail "no 'var version = \"...\"' line in $main"
+    # docs/setup.md's review and summons jobs each pin one phatblat/agentic-review
+    # checkout; any other count (e.g. one switched to a SHA) needs a human.
+    pins=$(agentic_pins 'v[0-9]+\.[0-9]+\.[0-9]+')
+    [ "$pins" -eq 2 ] || fail "expected 2 'ref: vX.Y.Z' pins of phatblat/agentic-review in $docs, found $pins"
+    # BSD and GNU sed disagree on -i; rewrite through a temp file instead.
+    rewrite() {
+        local tmp
+        tmp=$(mktemp)
+        sed -E "$2" "$1" > "$tmp"
+        cat "$tmp" > "$1"
+        rm -f "$tmp"
+    }
+    rewrite "$shim" "s/$shim_re/export const EXPECTED_VERSION = \"$want\";/"
+    rewrite "$main" "s/$main_re/var version = \"$want\"/"
+    rewrite "$docs" "/$repo_re/{n;s/^( +ref: )v[0-9]+\.[0-9]+\.[0-9]+([[:space:]]|\$)/\1$want\2/;}"
+    grep -qxF "export const EXPECTED_VERSION = \"$want\";" "$shim" || fail "EXPECTED_VERSION in $shim is not $want after rewrite"
+    grep -qxF "var version = \"$want\"" "$main" || fail "version in $main is not $want after rewrite"
+    got=$(agentic_pins "${want//./\\.}")
+    [ "$got" -eq 2 ] || fail "$got of 2 phatblat/agentic-review pins in $docs read $want after rewrite"
+    echo "version: $current -> $want ($shim, $main, $docs)"
 
 # Tag EXPECTED_VERSION on clean, up-to-date main and push it to trigger release.yml.
 release:
@@ -102,7 +167,7 @@ release:
     git push origin "refs/tags/$tag" || { git tag -d "$tag" >/dev/null; fail "push of $tag failed; local tag removed. Run 'git ls-remote --tags origin' before rerunning: if origin already has $tag, the release workflow may have started"; }
     echo "release: pushed $tag"
     echo "release: watch https://github.com/phatblat/agentic-review/actions/workflows/release.yml"
-    echo "release: then copy checksums.txt into CHECKSUMS in shim/index.mjs and bump EXPECTED_VERSION to the next tag (docs/setup.md section 5)"
+    echo "release: then copy checksums.txt into CHECKSUMS in shim/index.mjs and run 'just version <next>' (docs/setup.md section 5)"
 
 clean:
     rm -rf agentic-review dist .agentic-review

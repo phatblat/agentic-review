@@ -22,18 +22,17 @@ import { createHash } from "node:crypto";
 import path from "node:path";
 
 // EXPECTED_VERSION is the release tag this shim revision was cut for.
-// release.yml stamps release binaries with this exact tag via -ldflags;
-// dogfood.yml stamps its PR-head build with it too so AGENTIC_REVIEW_BIN
-// passes the same version check as every other ladder step.
-export const EXPECTED_VERSION = "v0.1.0";
+// `just version` keeps it equal to cmd/agentic-review/main.go's version
+// (TestVersionMatchesShim fails on drift), so a plain `go build`, as in
+// dogfood.yml and docs/setup.md's consumer workflow, passes the version
+// check below; .goreleaser.yaml stamps release binaries with the same tag.
+export const EXPECTED_VERSION = "v0.1.1";
 
 // CHECKSUMS maps "<os>-<arch>" to the sha256 of the EXPECTED_VERSION
-// release download for that platform. Populated by release.yml when the
-// tag is cut. Empty today: no v0.1.0 artifact exists yet (this repo has
-// no git remote and has never been released — see the build plan's
-// "Assumptions & contingencies": M11's workflows are inert until then).
-// A download attempted before this is populated fails loudly rather
-// than skipping verification.
+// release download for that platform, copied by hand from that release's
+// checksums.txt (docs/setup.md section 5). A download attempted while the
+// entry for this platform is missing fails loudly rather than skipping
+// verification.
 export const CHECKSUMS = {
   // "linux-amd64": "…",
   // "linux-arm64": "…",

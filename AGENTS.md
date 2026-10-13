@@ -103,7 +103,7 @@ CEL, evaluated against a frozen `facts` (+ optionally `assessment`) namespace by
 
 ## Development Commands
 
-Tool versions are pinned in `.mise.toml` (go 1.26.6, node 24, just, golangci-lint 2). Use
+Tool versions are pinned in `.mise.toml` (go 1.26.6, node 24, just 1.58.0, golangci-lint 2, goreleaser 2.18.3). Use
 `just` for everything; see `justfile` for the exact recipes:
 
 ```bash
@@ -121,15 +121,20 @@ just smoke          # CLI smoke (plan subcommand, no models) + shim smoke
                      # (shim/index.mjs with AGENTIC_REVIEW_DRY_RUN=1, no network)
 just live-smoke      # only runs if AGENTIC_REVIEW_ENDPOINT/AGENTIC_REVIEW_MODEL set;
                      # otherwise prints a notice and exits 0 — never fails CI
+just snapshot       # goreleaser build --snapshot --clean: cross-compile every release
+                     # platform from .goreleaser.yaml into dist/, no publishing
+just version        # print the app version (shim EXPECTED_VERSION); `just version X.Y.Z`
+                     # (leading v optional) writes vX.Y.Z to the shim, main.go, docs/setup.md
 just release        # tag the shim's EXPECTED_VERSION on clean, in-sync main, run just check,
                      # push the tag (triggers release.yml)
 just clean          # rm -rf agentic-review dist .agentic-review
 ```
 
-CI (`.github/workflows/ci.yml`) runs `just check` then cross-compiles
-(linux/amd64, linux/arm64, darwin/arm64). `dogfood.yml` self-reviews every PR with the
-in-flight binary via `uses: ./`. `release.yml` publishes cross-compiled binaries +
-`checksums.txt` on `v*` tags; cut tags with `just release`.
+CI (`.github/workflows/ci.yml`) runs `just check`, then `just snapshot` (GoReleaser
+cross-compiles linux/amd64, linux/arm64, darwin/arm64 from `.goreleaser.yaml`).
+`dogfood.yml` self-reviews every PR with the in-flight binary via `uses: ./`.
+`release.yml` runs GoReleaser on `v*` tags to publish the binaries + `checksums.txt`;
+bump the version with `just version`, cut tags with `just release`.
 
 ## Code Conventions & Common Patterns
 
@@ -190,6 +195,8 @@ in-flight binary via `uses: ./`. `release.yml` publishes cross-compiled binaries
   restriction so builtin personas/prompts ship inside the binary.
 - `action.yml` — GitHub Action definition (inputs: `github_token`, `config_path`,
   `endpoint`, `api_key`, `record`, `fail_on`; outputs: severity counts, `tokens`, `roster`).
+- `.goreleaser.yaml` — release build: platforms, `-trimpath`, `CGO_ENABLED=0`,
+  `-X main.version={{ .Tag }}`, asset names (`agentic-review-<os>-<arch>`), `checksums.txt`.
 - `shim/index.mjs` — binary resolution ladder (env var → baked `/usr/local/bin` →
   `$RUNNER_TOOL_CACHE` → GitHub Release download w/ SHA256 check), each rung
   version-checked via `<bin> version` before trust.
