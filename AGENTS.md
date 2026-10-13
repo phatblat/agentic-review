@@ -103,7 +103,7 @@ CEL, evaluated against a frozen `facts` (+ optionally `assessment`) namespace by
 
 ## Development Commands
 
-Tool versions are pinned in `.mise.toml` (go 1.26.6, node 24, just, golangci-lint 2, goreleaser 2.18.3). Use
+Tool versions are pinned in `.mise.toml` (go 1.26.6, node 24, just 1.58.0, golangci-lint 2, goreleaser 2.18.3). Use
 `just` for everything; see `justfile` for the exact recipes:
 
 ```bash
