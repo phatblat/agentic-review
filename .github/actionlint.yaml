@@ -1,0 +1,5 @@
+# Self-hosted runner labels actionlint cannot know about: the ARC scale set
+# the workflows run on (fork PRs route to GitHub-hosted runners instead).
+self-hosted-runner:
+  labels:
+    - arc-ubuntu-24.04-arm64
