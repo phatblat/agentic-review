@@ -84,7 +84,8 @@ live-smoke:
 
 # `just version` prints shim/index.mjs's EXPECTED_VERSION; `just version 1.2.3`
 # (a leading v is optional) writes v1.2.3 to EXPECTED_VERSION,
-# cmd/agentic-review/main.go's version, and docs/setup.md's ref: pins.
+# cmd/agentic-review/main.go's version, and docs/setup.md's two
+# phatblat/agentic-review ref: pins.
 # Checks every pattern before writing and every value after; never commits,
 # tags, or pushes.
 # Print the app version, or set it everywhere it is written.
@@ -113,8 +114,10 @@ version $new="":
     # Check every pattern before writing anything, so a miss leaves no file half-bumped.
     grep -qE "$shim_re" "$shim" || fail "no EXPECTED_VERSION line in $shim"
     grep -qE "$main_re" "$main" || fail "no 'var version = \"...\"' line in $main"
+    # docs/setup.md's review and summons jobs each pin one phatblat/agentic-review
+    # checkout; any other count (a SHA pin, another repo's tag) needs a human.
     pins=$(grep -cE "$pin_re" "$docs" || true)
-    [ "$pins" -gt 0 ] || fail "no 'ref: vX.Y.Z' pins in $docs"
+    [ "$pins" -eq 2 ] || fail "expected 2 'ref: vX.Y.Z' pins of phatblat/agentic-review in $docs, found $pins"
     # BSD and GNU sed disagree on -i; rewrite through a temp file instead.
     rewrite() {
         local tmp
