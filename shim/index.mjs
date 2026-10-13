@@ -26,7 +26,7 @@ import path from "node:path";
 // (TestVersionMatchesShim fails on drift), so a plain `go build`, as in
 // dogfood.yml and docs/setup.md's consumer workflow, passes the version
 // check below; .goreleaser.yaml stamps release binaries with the same tag.
-export const EXPECTED_VERSION = "v0.1.0";
+export const EXPECTED_VERSION = "v0.1.1";
 
 // CHECKSUMS maps "<os>-<arch>" to the sha256 of the EXPECTED_VERSION
 // release download for that platform, copied by hand from that release's

@@ -15,7 +15,7 @@ import (
 // drift), so a plain `go build` passes the shim's version check. Release
 // builds stamp the tag over it via .goreleaser.yaml's
 // -ldflags "-X main.version={{ .Tag }}".
-var version = "v0.1.0"
+var version = "v0.1.1"
 
 const usage = `agentic-review review   --event $GITHUB_EVENT_PATH [--record recordings/]
 agentic-review plan     --triage triage.json --config .        # no model calls

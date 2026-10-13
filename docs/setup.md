@@ -212,7 +212,7 @@ jobs:
       - uses: actions/checkout@v7.0.1
         with:
           repository: phatblat/agentic-review
-          ref: v0.1.0            # pin to a tag or SHA
+          ref: v0.1.1            # pin to a tag or SHA
           path: agentic-review
 
       - uses: actions/setup-go@v7.0.0
@@ -254,7 +254,7 @@ jobs:
       - uses: actions/checkout@v7.0.1
         with:
           repository: phatblat/agentic-review
-          ref: v0.1.0
+          ref: v0.1.1
           path: agentic-review
 
       - uses: actions/setup-go@v7.0.0
