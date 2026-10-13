@@ -109,13 +109,19 @@ version $new="":
     want="v$v"
     shim_re='^export const EXPECTED_VERSION = "[^"]*";$'
     main_re='^var version = "[^"]*"$'
-    pin_re='^ +ref: v[0-9]+\.[0-9]+\.[0-9]+([[:space:]]|$)'
+    # A pin is a `ref: vX.Y.Z` line directly under `repository: phatblat/agentic-review`;
+    # other repos' refs are never counted or rewritten.
+    repo_re='^ +repository: phatblat\/agentic-review[[:space:]]*$'
+    # agentic_pins VERSION_ERE: count docs/setup.md's agentic-review pins at that version.
+    agentic_pins() {
+        sed -nE "/$repo_re/{n;/^ +ref: $1([[:space:]]|\$)/p;}" "$docs" | grep -c . || true
+    }
     # Check every pattern before writing anything, so a miss leaves no file half-bumped.
     grep -qE "$shim_re" "$shim" || fail "no EXPECTED_VERSION line in $shim"
     grep -qE "$main_re" "$main" || fail "no 'var version = \"...\"' line in $main"
     # docs/setup.md's review and summons jobs each pin one phatblat/agentic-review
-    # checkout; any other count (a SHA pin, another repo's tag) needs a human.
-    pins=$(grep -cE "$pin_re" "$docs" || true)
+    # checkout; any other count (e.g. one switched to a SHA) needs a human.
+    pins=$(agentic_pins 'v[0-9]+\.[0-9]+\.[0-9]+')
     [ "$pins" -eq 2 ] || fail "expected 2 'ref: vX.Y.Z' pins of phatblat/agentic-review in $docs, found $pins"
     # BSD and GNU sed disagree on -i; rewrite through a temp file instead.
     rewrite() {
@@ -127,11 +133,11 @@ version $new="":
     }
     rewrite "$shim" "s/$shim_re/export const EXPECTED_VERSION = \"$want\";/"
     rewrite "$main" "s/$main_re/var version = \"$want\"/"
-    rewrite "$docs" "s/^( +ref: )v[0-9]+\.[0-9]+\.[0-9]+([[:space:]]|$)/\1$want\2/"
+    rewrite "$docs" "/$repo_re/{n;s/^( +ref: )v[0-9]+\.[0-9]+\.[0-9]+([[:space:]]|\$)/\1$want\2/;}"
     grep -qxF "export const EXPECTED_VERSION = \"$want\";" "$shim" || fail "EXPECTED_VERSION in $shim is not $want after rewrite"
     grep -qxF "var version = \"$want\"" "$main" || fail "version in $main is not $want after rewrite"
-    got=$(grep -cE "^ +ref: ${want//./\\.}([[:space:]]|$)" "$docs" || true)
-    [ "$got" -eq "$pins" ] || fail "$got of $pins ref: pins in $docs read $want after rewrite"
+    got=$(agentic_pins "${want//./\\.}")
+    [ "$got" -eq 2 ] || fail "$got of 2 phatblat/agentic-review pins in $docs read $want after rewrite"
     echo "version: $current -> $want ($shim, $main, $docs)"
 
 # Tag EXPECTED_VERSION on clean, up-to-date main and push it to trigger release.yml.
