@@ -169,3 +169,10 @@ A VCS-derived version, a single embedded `VERSION` file, and `GOFLAGS` in
   — `goreleaser-action` and the `fetch-depth: 0` requirement.
 - [Go 1.24 release notes](https://go.dev/doc/go1.24#go-command) — VCS-derived
   main-module version.
+
+## Errata
+
+- 2026-10-13: Clause 5's contract lists the target `linux_amd64`;
+  `.goreleaser.yaml` spells it `linux_amd64_v1`, GoReleaser's explicit form
+  of the same target (amd64 microarchitecture level v1, the default). The
+  decision is unchanged.
