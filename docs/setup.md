@@ -293,6 +293,8 @@ To replace the build-from-source pre-step with `uses: phatblat/agentic-review@vX
 2. Copy those checksums into `CHECKSUMS` in `shim/index.mjs`, keyed
    `<os>-<arch>`, and run `just version <next>` to move `EXPECTED_VERSION`,
    the binary's version, and this guide's `ref:` pins to the *next* tag.
+   Until step 3 publishes that tag, the section 4 `ref:` pins name a tag that
+   doesn't exist yet; copy the workflow with the latest published tag instead.
 3. Merge that change to `main`, then run `just release` again. That second
    tag is the first one whose download rung works — a release cannot contain
    the checksums of its own artifacts.
