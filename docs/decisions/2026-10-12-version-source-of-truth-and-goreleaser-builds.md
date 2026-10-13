@@ -18,7 +18,7 @@ platform list in `ci.yml`'s build matrix.
 
 ## Status
 
-This is a proposal that is **awaiting review**.
+This is a proposal that is **accepted**.
 
 ## Assumptions and Constraints
 
