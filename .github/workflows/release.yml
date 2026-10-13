@@ -25,10 +25,10 @@ jobs:
         with:
           go-version-file: go.mod
 
-      - uses: goreleaser/goreleaser-action@v7.3.0
-        with:
-          distribution: goreleaser
-          version: v2.18.3 # keep equal to .mise.toml's goreleaser pin (ci.yml's just snapshot uses it)
-          args: release --clean
+      # Installs .mise.toml's toolchain: its goreleaser entry is the only
+      # GoReleaser pin, shared with ci.yml's `just snapshot`.
+      - uses: jdx/mise-action@v4.2.5
+
+      - run: goreleaser release --clean
         env:
           GITHUB_TOKEN: ${{ github.token }}

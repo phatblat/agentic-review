@@ -3,4 +3,4 @@ go = "1.26.6"
 node = "24"
 just = "latest"
 golangci-lint = "2"
-goreleaser = "2.18.3" # keep equal to release.yml's goreleaser-action `version:`
+goreleaser = "2.18.3" # the only GoReleaser pin: ci.yml and release.yml both install it via mise-action
