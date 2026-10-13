@@ -5,6 +5,7 @@ import (
 	"strings"
 	"testing"
 
+	"github.com/google/go-cmp/cmp"
 	"github.com/phatblat/agentic-review/internal/gh"
 	"github.com/phatblat/agentic-review/internal/render"
 	"github.com/phatblat/agentic-review/internal/schema"
@@ -55,6 +56,51 @@ func TestPostLineFindingsBatchedIntoOneReview(t *testing.T) {
 	}
 	if reviewCalls != 1 {
 		t.Errorf("CreateReview calls = %d, want exactly 1 (batched)", reviewCalls)
+	}
+}
+
+// postLineFindings turns an anchor (start/end line + base/head ref) into a
+// gh.ReviewComment. This pins that mapping; internal/gh's wire tests pin the
+// ReviewComment → REST body half. Together they cover finding → wire.
+func TestPostLineFindingsReviewCommentMapping(t *testing.T) {
+	tests := []struct {
+		name       string
+		start, end int
+		ref        schema.AnchorRef
+		want       gh.ReviewComment
+	}{
+		{"single-line head", 10, 10, schema.RefHead, gh.ReviewComment{Path: "a.go", Line: 10, Side: "RIGHT"}},
+		{"multi-line head", 8, 12, schema.RefHead, gh.ReviewComment{Path: "a.go", Line: 12, StartLine: 8, Side: "RIGHT"}},
+		{"single-line base", 4, 4, schema.RefBase, gh.ReviewComment{Path: "a.go", Line: 4, Side: "LEFT"}},
+		{"multi-line base", 3, 7, schema.RefBase, gh.ReviewComment{Path: "a.go", Line: 7, StartLine: 3, Side: "LEFT"}},
+	}
+	for _, tc := range tests {
+		t.Run(tc.name, func(t *testing.T) {
+			fake := gh.NewFake(testPR())
+			f := lineFinding("f-0001", "sha256:a", "a.go", tc.start, tc.end, "warning")
+			f.Payload.Anchor.Ref = tc.ref
+			err := Post(context.Background(), Input{
+				Port: fake, Repo: gh.Repo{Owner: "acme", Name: "demo"}, Number: 1, HeadSHA: "headsha",
+				RunID: 1, Findings: []schema.Finding{f}, DiffPaths: map[string]bool{"a.go": true},
+				Caps: map[string]int{"warning": 10},
+			})
+			if err != nil {
+				t.Fatalf("Post: %v", err)
+			}
+			var got []gh.ReviewComment
+			for _, p := range fake.Posted {
+				if p.Method == "CreateReview" {
+					got = append(got, p.Comments...)
+				}
+			}
+			if len(got) != 1 {
+				t.Fatalf("posted %d review comments, want 1", len(got))
+			}
+			got[0].Body = "" // rendered markdown is covered by internal/render
+			if diff := cmp.Diff(tc.want, got[0]); diff != "" {
+				t.Errorf("ReviewComment mismatch (-want +got):\n%s", diff)
+			}
+		})
 	}
 }
 

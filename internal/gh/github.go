@@ -213,12 +213,15 @@ func (g *GitHub) CreateReview(ctx context.Context, r Repo, number int, headSHA, 
 	return nil
 }
 
+// CreateFileComment posts a file-level review comment. The REST API's
+// subject_type enum is lowercase ("line" | "file"); "FILE" is rejected with
+// a 422. Review comments' side, by contrast, is uppercase RIGHT/LEFT.
 func (g *GitHub) CreateFileComment(ctx context.Context, r Repo, number int, headSHA, path, body string) error {
 	_, _, err := g.client.PullRequests.CreateComment(ctx, r.Owner, r.Name, number, &github.PullRequestComment{
 		Path:        github.Ptr(path),
 		Body:        github.Ptr(body),
 		CommitID:    github.Ptr(headSHA),
-		SubjectType: github.Ptr("FILE"),
+		SubjectType: github.Ptr("file"),
 	})
 	if err != nil {
 		return fmt.Errorf("gh: create file comment %s/%s#%d %s: %w", r.Owner, r.Name, number, path, err)
