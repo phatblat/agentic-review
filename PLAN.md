@@ -177,7 +177,7 @@ Expected: only `.github/workflows/release.yml` (Task 5 replaces it)
 - Modify: `AGENTS.md:124-126` (command block)
 - Modify: `docs/setup.md:298-299`
 
-- [ ] **Step 1: Add the recipe**
+- [x] **Step 1: Add the recipe**
 
 Insert into `justfile` immediately above the line `# Tag EXPECTED_VERSION on clean, up-to-date main and push it to trigger release.yml.`:
 
@@ -234,7 +234,7 @@ version $new="":
 
 ```
 
-- [ ] **Step 2: Point `just release`'s closing hint at the recipe**
+- [x] **Step 2: Point `just release`'s closing hint at the recipe**
 
 Replace `justfile` line 105 (the last `echo` in `release`) with:
 
@@ -242,7 +242,7 @@ Replace `justfile` line 105 (the last `echo` in `release`) with:
     echo "release: then copy checksums.txt into CHECKSUMS in shim/index.mjs and run 'just version <next>' (docs/setup.md section 5)"
 ```
 
-- [ ] **Step 3: Document it**
+- [x] **Step 3: Document it**
 
 In `AGENTS.md`'s command block, insert immediately above the `just release` line (124):
 
@@ -259,7 +259,7 @@ Replace `docs/setup.md` lines 298-299 (step 2 of section 5) with:
    the binary's version, and this guide's `ref:` pins to the *next* tag.
 ```
 
-- [ ] **Step 4: Verify behavior (throwaway checks, nothing kept)**
+- [x] **Step 4: Verify behavior (throwaway checks, nothing kept)**
 
 Run each and compare:
 
@@ -503,4 +503,4 @@ Expected: all pass
 
 ## Status
 
-Task 2 built and checked (first check flagged the intended `main.go` comment via a broader grep than the plan's; re-run with the plan's grep passed). Note: `go test -ldflags '-X main.version=…'` does not reach the package under test (it links as `github.com/phatblat/agentic-review/cmd/agentic-review`); release `go build` of the main package is unaffected.
+Task 3 built and checked on macOS (BSD sed/grep); GNU sed/grep not exercised locally. Follow-up for the builder: `just --list` shows only a recipe's last comment line, so `version`'s (and the planned `snapshot`'s) one-line summary must be the comment line directly above the recipe, matching `release`. Note: `go test -ldflags '-X main.version=…'` does not reach the package under test; release `go build` of the main package is unaffected.
