@@ -177,4 +177,8 @@ Expected: all pass, no `dist/` left
 
 ## Status
 
-Task 2 built and checked; both tasks done. Task 1: `just version` fails unless `docs/setup.md` has exactly two `ref: vX.Y.Z` pins. Task 2: comment-only fixes (deps tool list, snapshot comment, ci.yml snapshot scope, GoReleaser pin cross-references).
+Reviewed, awaiting Gate 2. No blockers. Remaining findings:
+
+- minor `justfile:119` — the pin count ignores which repo a pin belongs to: one agentic-review pin switched to a SHA plus another repo's `ref: vX.Y.Z` still counts 2, and that other pin would be rewritten; make the count repository-aware (awk tracking `repository:`) or reword the message so it doesn't claim the repo.
+- nit `.github/workflows/release.yml:31` — "keep equal" pairs `v2.18.3` with `.mise.toml`'s `2.18.3`; say "same version (release.yml adds a leading v)" and backtick `just snapshot`.
+- nit `justfile:8` — pre-existing: `just --list` shows `deps # before build/test/lint.`; add a one-line summary directly above `deps:`.
