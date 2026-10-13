@@ -28,7 +28,7 @@
 - Modify: `cmd/agentic-review/main.go:13-15`
 - Test: `cmd/agentic-review/main_test.go`
 
-- [ ] **Step 1: Write the failing test**
+- [x] **Step 1: Write the failing test**
 
 In `cmd/agentic-review/main_test.go`, replace `import "testing"` with:
 
@@ -63,12 +63,12 @@ func TestVersionMatchesShim(t *testing.T) {
 }
 ```
 
-- [ ] **Step 2: Run the test to verify it fails**
+- [x] **Step 2: Run the test to verify it fails**
 
 Run: `go test ./cmd/agentic-review -run TestVersionMatchesShim`
 Expected: FAIL with `main.version = "dev", shim EXPECTED_VERSION = "v0.1.0"`
 
-- [ ] **Step 3: Set the literal**
+- [x] **Step 3: Set the literal**
 
 Replace `cmd/agentic-review/main.go` lines 13-15 (the comment and `var version = "dev"`) with:
 
@@ -81,7 +81,7 @@ Replace `cmd/agentic-review/main.go` lines 13-15 (the comment and `var version =
 var version = "v0.1.0"
 ```
 
-- [ ] **Step 4: Run the test and a plain build to verify they pass**
+- [x] **Step 4: Run the test and a plain build to verify they pass**
 
 Run: `go test ./cmd/agentic-review`
 Expected: PASS
@@ -503,4 +503,4 @@ Expected: all pass
 
 ## Status
 
-Not started.
+Task 1 built and checked. Note: `go test -ldflags '-X main.version=…'` does not reach the package under test (it links as `github.com/phatblat/agentic-review/cmd/agentic-review`); release `go build` of the main package is unaffected.
