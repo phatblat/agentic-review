@@ -29,6 +29,13 @@ jobs:
       # GoReleaser pin, shared with ci.yml's `just snapshot`.
       - uses: jdx/mise-action@v4.2.5
 
+      # GoReleaser stamps the pushed tag into the binaries, but the shim only
+      # trusts EXPECTED_VERSION, so refuse a tag that doesn't match it.
+      - name: Check the tag matches EXPECTED_VERSION
+        run: |
+          expected=$(just version)
+          [ "$GITHUB_REF_NAME" = "$expected" ] || { echo "::error::tag $GITHUB_REF_NAME does not match EXPECTED_VERSION $expected in shim/index.mjs"; exit 1; }
+
       - run: goreleaser release --clean
         env:
           GITHUB_TOKEN: ${{ github.token }}
